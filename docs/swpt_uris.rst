@@ -1,4 +1,4 @@
-`swpt_uris` module
+``swpt_uris`` module
 ====================
 
 This module implements functions for creating and parsing URI with the

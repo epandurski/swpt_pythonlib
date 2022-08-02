@@ -1,4 +1,4 @@
-`scan_table` module
+``scan_table`` module
 =====================
 
 This module implements a PostgreSQL sequential table scanner. The rows

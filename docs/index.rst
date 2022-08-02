@@ -37,6 +37,8 @@ You can install Swpt-Pythonlib with :command:`pip`::
    utils
    scan_table
    swpt_uris
+   rabbitmq
+   flask_signalbus
 
 
 Indices and tables

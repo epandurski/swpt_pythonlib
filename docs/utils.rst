@@ -1,4 +1,4 @@
-`utils` module
+``utils`` module
 ================
 
 This module implements miscellaneous utility functions and classes.

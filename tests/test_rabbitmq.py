@@ -1,0 +1,148 @@
+import datetime
+import signal
+import pytest
+import time
+import threading
+from flask import current_app
+from swpt_pythonlib import rabbitmq
+from swpt_pythonlib.rabbitmq.publisher import DeliverySet
+
+BODY = datetime.datetime.now().isoformat().encode()
+PROPERTIES = rabbitmq.MessageProperties()
+
+
+@pytest.fixture
+def message():
+    return rabbitmq.Message(
+        body=BODY,
+        properties=PROPERTIES,
+        exchange='',
+        routing_key='test',
+    )
+
+
+@pytest.fixture(params=['direct', 'init_app'])
+def publisher(app, request):
+    if request.param == 'direct':
+        p = rabbitmq.Publisher(app)
+    elif request.param == 'init_app':
+        p = rabbitmq.Publisher()
+        p.init_app(app)
+    return p
+
+
+@pytest.fixture(params=['direct', 'init_app'])
+def consumer(app, request):
+    class C(rabbitmq.Consumer):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._messages = []
+
+        def process_message(self, *args):
+            assert current_app.name == self.app.name
+            self._messages.append(args)
+            return True
+
+    if request.param == 'direct':
+        p = C(app)
+    elif request.param == 'init_app':
+        p = C()
+        p.init_app(app)
+    return p
+
+
+def test_delivery_set():
+    s = DeliverySet(20, 10)  # from 20 to 29
+    assert(not s.all_confirmed)
+    assert(s.confirm(23) is True)
+    assert(s.confirm(23) is False)
+    assert(not s.all_confirmed)
+    assert(s.confirm(10) is False)
+    assert(not s.all_confirmed)
+    assert(s.confirm(28, multiple=True) is True)
+    assert(s.confirm(24, multiple=False) is False)
+    assert(not s.all_confirmed)
+    assert(s.confirm(29) is True)
+    assert(s.all_confirmed)
+
+
+@pytest.mark.skip('requires RabbitMQ instance running')
+def test_publisher(publisher, message):
+    publisher.publish_messages([])
+    publisher.publish_messages([message])
+    publisher.publish_messages([message, message])
+    time.sleep(20)
+    publisher.publish_messages([message], timeout=60)
+
+
+def test_consumer_creation(app):
+    consumer = rabbitmq.Consumer(app, url='url1', queue='q1', threads=2, prefetch_size=10000, prefetch_count=5)
+    assert consumer.url == 'url1'
+    assert consumer.queue == 'q1'
+    assert consumer.threads == 2
+    assert consumer.prefetch_size == 10000
+    assert consumer.prefetch_count == 5
+
+    consumer = rabbitmq.Consumer(app)
+    assert consumer.url == '?heartbeat=5'
+    assert consumer.queue == 'test'
+    assert consumer.threads == 1
+    assert consumer.prefetch_size == 0
+    assert consumer.prefetch_count == 1
+
+
+@pytest.mark.skip('requires RabbitMQ instance running')
+def test_consumer(consumer, publisher, message):
+    def stop_consuming_after_a_while():
+        time.sleep(5)
+        consumer.stop()
+
+    threading.Thread(target=stop_consuming_after_a_while).start()
+    publisher.publish_messages([message, message, message])
+
+    with pytest.raises(rabbitmq.TerminatedConsumtion):
+        consumer.start()
+
+    messages = consumer._messages
+    n = len(messages)
+    assert n >= 3
+    assert messages[-1] == messages[-2] == messages[-3]
+    m = messages[-1]
+    assert len(m) == 2
+    assert m[0] == BODY
+    assert m[1] == PROPERTIES
+
+    # call start() again
+    threading.Thread(target=stop_consuming_after_a_while).start()
+    publisher.publish_messages([message])
+
+    with pytest.raises(rabbitmq.TerminatedConsumtion):
+        consumer.start()
+    assert len(consumer._messages) == n + 1
+
+
+@pytest.mark.skip('requires RabbitMQ instance running')
+def test_consumer_process_error(app, publisher, message):
+    consumer = rabbitmq.Consumer(app)
+
+    publisher.publish_messages([message])
+    with pytest.raises(rabbitmq.TerminatedConsumtion):
+        consumer.start()
+
+
+@pytest.mark.skip('requires RabbitMQ instance running')
+def test_consumer_sigterm(app):
+    consumer = rabbitmq.Consumer(app)
+    signal.signal(signal.SIGINT, consumer.stop)
+    signal.signal(signal.SIGTERM, consumer.stop)
+
+    thread_id = threading.get_ident()
+
+    def send_sigterm_after_a_while():
+        time.sleep(5)
+        signal.pthread_kill(thread_id, signal.SIGTERM)
+
+    threading.Thread(target=send_sigterm_after_a_while).start()
+
+    with pytest.raises(rabbitmq.TerminatedConsumtion):
+        consumer.start()

@@ -37,12 +37,15 @@ setup(
     long_description=__doc__,
     packages=[
         'swpt_pythonlib',
+        'swpt_pythonlib.rabbitmq',
+        'swpt_pythonlib.flask_signalbus',
     ],
     zip_safe=True,
     platforms='any',
     setup_requires=pytest_runner,
     install_requires=[
-        'Flask-SQLAlchemy>=1.0',
+        'Flask-SQLAlchemy>=2.4',
+        'pika~=1.3',
     ],
     tests_require=[
         'pytest~=6.2',
