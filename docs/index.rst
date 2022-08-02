@@ -11,9 +11,6 @@ Release v\ |release|. (`Source Code`_)
 
 .. _Source Code: https://github.com/swaptacular/swpt_pythonlib
 
-.. image:: https://badge.fury.io/py/Swpt-Pythonlib.svg
-   :target: https://badge.fury.io/py/Swpt-Pythonlib
-
 .. image:: https://img.shields.io/badge/License-MIT-yellow.svg
    :target: https://opensource.org/licenses/MIT
 
@@ -30,7 +27,7 @@ Installation
 
 You can install Swpt-Pythonlib with :command:`pip`::
 
-    $ pip install swpt_pythonlib
+    $ pip install git+https://github.com/swaptacular/swpt_pythonlib.git@main
 
 
 .. toctree::
