@@ -17,12 +17,12 @@ Release v\ |release|. (`Source Code`_)
 .. image:: https://img.shields.io/badge/License-MIT-yellow.svg
    :target: https://opensource.org/licenses/MIT
 
-.. image:: https://circleci.com/gh/swaptcular/swpt_pythonlib?style=shield
-   :target: https://circleci.com/gh/swaptcular/swpt_pythonlib
+.. image:: https://dl.circleci.com/status-badge/img/gh/swaptacular/swpt_pythonlib/tree/main.svg?style=svg
+        :target: https://dl.circleci.com/status-badge/redirect/gh/swaptacular/swpt_pythonlib/tree/main
 
 
-**swpt_pythonlib** is A Python library used by many of Swaptacular's
-micro-services
+**Swpt-Pythonlib** is A Python library used by many of Swaptacular's
+micro-services.
 
 
 Installation
@@ -30,7 +30,7 @@ Installation
 
 You can install Flask-SignalBus with :command:`pip`::
 
-    $ pip install Flask-SignalBus
+    $ pip install swpt_pythonlib
 
 
 .. toctree::
