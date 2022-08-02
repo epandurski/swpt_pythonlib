@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to swpt_pythonlib's documentation!
+Welcome to Swpt-Pythonlib's documentation!
 ==========================================
 
 
@@ -28,7 +28,7 @@ micro-services.
 Installation
 ````````````
 
-You can install Flask-SignalBus with :command:`pip`::
+You can install Swpt-Pythonlib with :command:`pip`::
 
     $ pip install swpt_pythonlib
 
