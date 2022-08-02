@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-Version 0.1
+Version 0.6
 -----------
 
 - Initial release
