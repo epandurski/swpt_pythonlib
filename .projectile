@@ -1,0 +1,5 @@
+-/docs/_build
+-/htmlcov
+-/.mypy_cache
+-/.pytest_cache
+-/Swpt_Pythonlib.egg-info
