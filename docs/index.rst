@@ -39,6 +39,7 @@ You can install Swpt-Pythonlib with :command:`pip`::
    swpt_uris
    rabbitmq
    flask_signalbus
+   protocol_schemas
 
 
 Indices and tables

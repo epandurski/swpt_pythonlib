@@ -45,6 +45,7 @@ setup(
     setup_requires=pytest_runner,
     install_requires=[
         'Flask-SQLAlchemy>=2.4',
+        'marshmallow~=3.10',
         'pika~=1.3',
     ],
     tests_require=[
