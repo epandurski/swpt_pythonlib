@@ -1,6 +1,6 @@
 import pytest
 from marshmallow import ValidationError
-from datetime import datetime
+from datetime import datetime, date
 from swpt_pythonlib import protocol_schemas as ps
 
 
@@ -38,12 +38,6 @@ def test_configure_account():
     wrong_type = s.dumps(wrong_type)
     with pytest.raises(ValidationError, match='Invalid type.'):
         s.loads(wrong_type)
-
-    missing_field = data.copy()
-    del missing_field['config_data']
-    missing_field = s.dumps(wrong_type)
-    with pytest.raises(ValidationError, match='Missing data for required field.'):
-        s.loads(missing_field)
 
     wrong_config_data = data.copy()
     wrong_config_data['config_data'] = 1500 * 'Щ'
@@ -253,6 +247,67 @@ def test_finalize_transfer():
     assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
     assert "unknown" not in data
 
+    wrong_transfer_note = data.copy()
+    wrong_transfer_note['transfer_note'] = 350 * 'Щ'
+    wrong_transfer_note = s.dumps(wrong_transfer_note)
+    with pytest.raises(ValidationError, match='The length of transfer_note exceeds 500 bytes'):
+        s.loads(wrong_transfer_note)
+
+    try:
+        s.loads('{}')
+    except ValidationError as e:
+        assert len(e.messages) == len(data)
+        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+
+
+def test_finalized_transfer():
+    s = ps.FinalizedTransferMessageSchema()
+
+    data = s.loads("""{
+    "type": "FinalizedTransfer",
+    "creditor_id": -1000000000000000,
+    "debtor_id": -2000000000000000,
+    "transfer_id": -3000000000000000,
+    "coordinator_type": "direct",
+    "coordinator_id": 1111111111111111,
+    "coordinator_request_id": 123456789012345,
+    "committed_amount": 1230000000000,
+    "status_code": "OK",
+    "total_locked_amount": 0,
+    "prepared_at": "2022-01-01T00:00:00Z",
+    "ts": "2022-01-01T00:00:05Z",
+    "unknown": "ignored"
+    }""")
+
+    assert data['type'] == 'FinalizedTransfer'
+    assert data['creditor_id'] == -1000000000000000
+    assert data['debtor_id'] == -2000000000000000
+    assert data['transfer_id'] == -3000000000000000
+    assert type(data['transfer_id']) is int
+    assert data['coordinator_type'] == 'direct'
+    assert data['coordinator_id'] == 1111111111111111
+    assert data['coordinator_request_id'] == 123456789012345
+    assert data['committed_amount'] == 1230000000000
+    assert type(data['committed_amount']) is int
+    assert data['status_code'] == 'OK'
+    assert data['total_locked_amount'] == 0
+    assert type(data['total_locked_amount']) is int
+    assert data['prepared_at'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
+    assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:05+00:00')
+    assert "unknown" not in data
+
+    wrong_status_code1 = data.copy()
+    wrong_status_code1['status_code'] = 'NOT OK'
+    wrong_status_code1 = s.dumps(wrong_status_code1)
+    with pytest.raises(ValidationError, match='The committed_amount must be zero when status_code is not "OK"'):
+        s.loads(wrong_status_code1)
+
+    wrong_status_code2 = data.copy()
+    wrong_status_code2['status_code'] = 'Кирилица'
+    wrong_status_code2 = s.dumps(wrong_status_code2)
+    with pytest.raises(ValidationError, match='The status_code field contains non-ASCII characters'):
+        s.loads(wrong_status_code2)
+
     try:
         s.loads('{}')
     except ValidationError as e:
@@ -311,6 +366,118 @@ def test_rejected_transfer():
     empty_coordinator_type = s.dumps(empty_coordinator_type)
     with pytest.raises(ValidationError, match='Length must be between 1 and'):
         s.loads(empty_coordinator_type)
+
+    try:
+        s.loads('{}')
+    except ValidationError as e:
+        assert len(e.messages) == len(data)
+        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+
+
+def test_account_purge():
+    s = ps.AccountPurgeMessageSchema()
+
+    data = s.loads("""{
+    "type": "AccountPurge",
+    "creditor_id": 1000000000000000,
+    "debtor_id": 2000000000000000,
+    "creation_date": "2021-01-30",
+    "ts": "2022-01-01T00:00:00Z",
+    "unknown": "ignored"
+    }""")
+
+    assert data['type'] == 'AccountPurge'
+    assert data['creditor_id'] == 1000000000000000
+    assert data['debtor_id'] == 2000000000000000
+    assert data['creation_date'] == date(2021, 1, 30)
+    assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
+    assert "unknown" not in data
+
+    try:
+        s.loads('{}')
+    except ValidationError as e:
+        assert len(e.messages) == len(data)
+        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+
+
+def test_account_update():
+    s = ps.AccountUpdateMessageSchema()
+
+    data = s.loads("""{
+    "type": "AccountUpdate",
+    "creditor_id": 1000000000000000,
+    "debtor_id": 2000000000000000,
+    "creation_date": "2021-01-30",
+    "last_change_ts": "2022-01-01T00:00:01Z",
+    "last_change_seqnum": 1,
+    "principal": 12340000000000,
+    "interest": -1e6,
+    "interest_rate": -7.7,
+    "last_interest_rate_change_ts": "2022-01-01T00:00:02Z",
+    "last_config_ts": "2022-01-01T00:00:03Z",
+    "last_config_seqnum": -1,
+    "negligible_amount": 3.14,
+    "config_flags": 64,
+    "config_data": "test config data",
+    "account_id": "test account",
+    "debtor_info_iri": "https://example.com/",
+    "debtor_info_content_type": "text/plain",
+    "debtor_info_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "last_transfer_number": 0,
+    "last_transfer_committed_at": "2022-01-01T00:00:04Z",
+    "demurrage_rate": -6.28,
+    "commit_period": 86400,
+    "transfer_note_max_bytes": 100,
+    "ts": "2022-01-01T00:00:00Z",
+    "ttl": 100000,
+    "unknown": "ignored"
+    }""")
+
+    assert data['type'] == 'AccountUpdate'
+    assert data['creditor_id'] == 1000000000000000
+    assert data['debtor_id'] == 2000000000000000
+    assert data['creation_date'] == date(2021, 1, 30)
+    assert data['last_change_ts'] == datetime.fromisoformat('2022-01-01T00:00:01+00:00')
+    assert data['last_change_seqnum'] == 1
+    assert data['principal'] == 12340000000000
+    assert data['interest'] == -1e6
+    assert data['interest_rate'] == -7.7
+    assert data['last_interest_rate_change_ts'] == datetime.fromisoformat('2022-01-01T00:00:02+00:00')
+    assert data['last_config_ts'] == datetime.fromisoformat('2022-01-01T00:00:03+00:00')
+    assert data['last_config_seqnum'] == -1
+    assert data['negligible_amount'] == 3.14
+    assert data['config_flags'] == 64
+    assert data['config_data'] == "test config data"
+    assert data['account_id'] == "test account"
+    assert data['debtor_info_iri'] == "https://example.com/"
+    assert data['debtor_info_content_type'] == "text/plain"
+    assert data['debtor_info_sha256'] == "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    assert data['last_transfer_number'] == 0
+    assert data['last_transfer_committed_at'] == datetime.fromisoformat('2022-01-01T00:00:04+00:00')
+    assert data['demurrage_rate'] == -6.28
+    assert data['commit_period'] == 86400
+    assert data['transfer_note_max_bytes'] == 100
+    assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
+    assert data['ttl'] == 100000
+    assert "unknown" not in data
+
+    wrong_config_data = data.copy()
+    wrong_config_data['config_data'] = 1500 * 'Щ'
+    wrong_config_data = s.dumps(wrong_config_data)
+    with pytest.raises(ValidationError, match='The length of config_data exceeds 2000 bytes'):
+        s.loads(wrong_config_data)
+
+    wrong_account_id = data.copy()
+    wrong_account_id['account_id'] = 'Кирилица'
+    wrong_account_id = s.dumps(wrong_account_id)
+    with pytest.raises(ValidationError, match='The account_id field contains non-ASCII characters'):
+        s.loads(wrong_account_id)
+
+    wrong_content_type = data.copy()
+    wrong_content_type['debtor_info_content_type'] = 'Кирилица'
+    wrong_content_type = s.dumps(wrong_content_type)
+    with pytest.raises(ValidationError, match='The debtor_info_content_type field contains non-ASCII characters'):
+        s.loads(wrong_content_type)
 
     try:
         s.loads('{}')
