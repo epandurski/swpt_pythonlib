@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.8.0
+-------------
+
+- Added protocol_schemas module
+
+
 Version 0.7.0
 -------------
 
