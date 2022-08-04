@@ -484,3 +484,76 @@ def test_account_update():
     except ValidationError as e:
         assert len(e.messages) == len(data)
         assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+
+
+def test_account_transfer():
+    s = ps.AccountTransferMessageSchema()
+
+    data = s.loads("""{
+    "type": "AccountTransfer",
+    "creditor_id": -1000000000000000,
+    "debtor_id": -2000000000000000,
+    "creation_date": "2021-01-30",
+    "transfer_number": 333333333333333,
+    "coordinator_type": "direct",
+    "sender": "test sender",
+    "recipient": "test recipient",
+    "acquired_amount": 1230000000000,
+    "transfer_note": "test note",
+    "transfer_note_format": "",
+    "committed_at": "2022-01-01T00:00:01Z",
+    "principal": -100000000000000,
+    "ts": "2022-01-01T00:00:00Z",
+    "previous_transfer_number": 333333333333332,
+    "unknown": "ignored"
+    }""")
+
+    assert data['type'] == 'AccountTransfer'
+    assert data['creditor_id'] == -1000000000000000
+    assert data['debtor_id'] == -2000000000000000
+    assert data['creation_date'] == date(2021, 1, 30)
+    assert data['transfer_number'] == 333333333333333
+    assert type(data['transfer_number']) is int
+    assert data['coordinator_type'] == 'direct'
+    assert data['sender'] == 'test sender'
+    assert data['recipient'] == 'test recipient'
+    assert data['acquired_amount'] == 1230000000000
+    assert type(data['acquired_amount']) is int
+    assert data['transfer_note'] == 'test note'
+    assert data['transfer_note_format'] == ''
+    assert data['committed_at'] == datetime.fromisoformat('2022-01-01T00:00:01+00:00')
+    assert data['principal'] == -100000000000000
+    assert type(data['principal']) is int
+    assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
+    assert data['previous_transfer_number'] == 333333333333332
+    assert "unknown" not in data
+
+    wrong_acquired_amount = data.copy()
+    wrong_acquired_amount['acquired_amount'] = 0
+    wrong_acquired_amount = s.dumps(wrong_acquired_amount)
+    with pytest.raises(ValidationError, match='The acquired_amount field is zero, which is not allowed'):
+        s.loads(wrong_acquired_amount)
+
+    wrong_transfer_note = data.copy()
+    wrong_transfer_note['transfer_note'] = 350 * 'Щ'
+    wrong_transfer_note = s.dumps(wrong_transfer_note)
+    with pytest.raises(ValidationError, match='The length of transfer_note exceeds 500 bytes'):
+        s.loads(wrong_transfer_note)
+
+    wrong_sender = data.copy()
+    wrong_sender['sender'] = 'Кирилица'
+    wrong_sender = s.dumps(wrong_sender)
+    with pytest.raises(ValidationError, match='The sender field contains non-ASCII characters'):
+        s.loads(wrong_sender)
+
+    wrong_recipient = data.copy()
+    wrong_recipient['recipient'] = 'Кирилица'
+    wrong_recipient = s.dumps(wrong_recipient)
+    with pytest.raises(ValidationError, match='The recipient field contains non-ASCII characters'):
+        s.loads(wrong_recipient)
+
+    try:
+        s.loads('{}')
+    except ValidationError as e:
+        assert len(e.messages) == len(data)
+        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
