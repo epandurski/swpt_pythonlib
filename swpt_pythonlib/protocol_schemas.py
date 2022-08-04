@@ -267,3 +267,8 @@ class PendingBalanceChangeMessageSchema(_ValidateCoordinatorTypeMixin, _Validate
     committed_at = fields.DateTime(required=True)
     principal_delta = fields.Integer(required=True, validate=validate.Range(min=-MAX_INT64, max=MAX_INT64))
     other_creditor_id = fields.Integer(required=True, validate=validate.Range(min=MIN_INT64, max=MAX_INT64))
+
+    @validates('principal_delta')
+    def validate_principal_delta(self, value):
+        if value == 0:
+            raise ValidationError('The principal_delta field is zero, which is not allowed.')

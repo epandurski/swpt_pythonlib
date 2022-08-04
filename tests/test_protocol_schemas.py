@@ -557,3 +557,48 @@ def test_account_transfer():
     except ValidationError as e:
         assert len(e.messages) == len(data)
         assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+
+
+def test_pending_balance_change():
+    s = ps.PendingBalanceChangeMessageSchema()
+
+    data = s.loads("""{
+    "type": "PendingBalanceChange",
+    "creditor_id": -1000000000000000,
+    "debtor_id": -2000000000000000,
+    "change_id": -3000000000000000,
+    "coordinator_type": "direct",
+    "transfer_note": "test note",
+    "transfer_note_format": "",
+    "committed_at": "2022-01-01T00:00:01Z",
+    "principal_delta": 1230000000000,
+    "other_creditor_id": 0,
+    "unknown": "ignored"
+    }""")
+
+    assert data['type'] == 'PendingBalanceChange'
+    assert data['creditor_id'] == -1000000000000000
+    assert data['debtor_id'] == -2000000000000000
+    assert data['change_id'] == -3000000000000000
+    assert type(data['change_id']) is int
+    assert data['coordinator_type'] == 'direct'
+    assert data['transfer_note'] == 'test note'
+    assert data['transfer_note_format'] == ''
+    assert data['committed_at'] == datetime.fromisoformat('2022-01-01T00:00:01+00:00')
+    assert data['principal_delta'] == 1230000000000
+    assert type(data['principal_delta']) is int
+    assert data['other_creditor_id'] == 0
+    assert type(data['other_creditor_id']) is int
+    assert "unknown" not in data
+
+    wrong_principal_delta = data.copy()
+    wrong_principal_delta['principal_delta'] = 0
+    wrong_principal_delta = s.dumps(wrong_principal_delta)
+    with pytest.raises(ValidationError, match='The principal_delta field is zero, which is not allowed'):
+        s.loads(wrong_principal_delta)
+
+    try:
+        s.loads('{}')
+    except ValidationError as e:
+        assert len(e.messages) == len(data)
+        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
