@@ -552,6 +552,12 @@ def test_account_transfer():
     with pytest.raises(ValidationError, match='The recipient field contains non-ASCII characters'):
         s.loads(wrong_recipient)
 
+    wrong_transfer_number = data.copy()
+    wrong_transfer_number['transfer_number'] = 333333333333332
+    wrong_transfer_number = s.dumps(wrong_transfer_number)
+    with pytest.raises(ValidationError, match='transfer_number must be greater than previous_transfer_number'):
+        s.loads(wrong_transfer_number)
+
     try:
         s.loads('{}')
     except ValidationError as e:

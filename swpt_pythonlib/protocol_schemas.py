@@ -252,6 +252,11 @@ class AccountTransferMessageSchema(_ValidateCoordinatorTypeMixin, _ValidateTrans
         if value == 0:
             raise ValidationError('The acquired_amount field is zero, which is not allowed.')
 
+    @validates_schema
+    def validate_transfer_number(self, data, **kwargs):
+        if data['previous_transfer_number'] >= data['transfer_number']:
+            raise ValidationError("transfer_number must be greater than previous_transfer_number.")
+
 
 class PendingBalanceChangeMessageSchema(_ValidateCoordinatorTypeMixin, _ValidateTransferFieldsMixin, Schema):
     """``PendingBalanceChange`` message schema.
