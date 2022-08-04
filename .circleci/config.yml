@@ -8,7 +8,9 @@ jobs:
       - run:
           name: Run Tests
           command: |
-            python setup.py test
+            pip install 'pytest~=6.2' 'pytest-cov~=2.7' 'mock~=2.0' 'Flask-SQLAlchemy>=2.4' 'marshmallow~=3.10' 'pika~=1.3' 
+            pip install -e .
+            pytest
 workflows:
   version: 2
   commit:
