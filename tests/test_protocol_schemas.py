@@ -1,4 +1,5 @@
 import pytest
+import math
 from marshmallow import ValidationError
 from datetime import datetime, date
 from swpt_pythonlib import protocol_schemas as ps
@@ -67,6 +68,19 @@ def test_configure_account_infinity():
         "ts": "2022-01-01T00:00:00Z",
         "unknown": "ignored"
         }""")
+
+    with pytest.raises(ValidationError, match=r'Special numeric values \(nan or infinity\) are not permitted'):
+        s.load({
+            "type": "ConfigureAccount",
+            "creditor_id": 1,
+            "debtor_id": 2,
+            "negligible_amount": math.inf,
+            "config_data": "test config data",
+            "config_flags": 128,
+            "seqnum": 0,
+            "ts": "2022-01-01T00:00:00Z",
+            "unknown": "ignored",
+        })
 
 
 def test_rejected_config():
