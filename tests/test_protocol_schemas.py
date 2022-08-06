@@ -52,6 +52,23 @@ def test_configure_account():
         assert all(m == ['Missing data for required field.'] for m in e.messages.values())
 
 
+def test_configure_account_infinity():
+    s = ps.ConfigureAccountMessageSchema()
+
+    with pytest.raises(ValidationError, match=r'Special numeric values \(nan or infinity\) are not permitted'):
+        s.loads("""{
+        "type": "ConfigureAccount",
+        "creditor_id": 1,
+        "debtor_id": 2,
+        "negligible_amount": 1e500,
+        "config_data": "test config data",
+        "config_flags": 128,
+        "seqnum": 0,
+        "ts": "2022-01-01T00:00:00Z",
+        "unknown": "ignored"
+        }""")
+
+
 def test_rejected_config():
     s = ps.RejectedConfigMessageSchema()
 
