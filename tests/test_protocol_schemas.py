@@ -46,6 +46,24 @@ def test_configure_account():
     with pytest.raises(ValidationError, match='The length of config_data exceeds 2000 bytes'):
         s.loads(wrong_config_data)
 
+    with pytest.raises(ValidationError, match='Invalid input type'):
+        s.loads('1')
+
+    with pytest.raises(ValidationError, match='Invalid input type'):
+        s.loads('1.0')
+
+    with pytest.raises(ValidationError, match='Invalid input type'):
+        s.loads('false')
+
+    with pytest.raises(ValidationError, match='Invalid input type'):
+        s.loads('"text"')
+
+    with pytest.raises(ValidationError, match='Invalid input type'):
+        s.loads('null')
+
+    with pytest.raises(ValidationError, match='Invalid input type'):
+        s.loads('[]')
+
     try:
         s.loads('{}')
     except ValidationError as e:
