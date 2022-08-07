@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.8.1
+-------------
+
+- Added few utility functions
+
+
 Version 0.8.0
 -------------
 
