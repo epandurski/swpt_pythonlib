@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+from hashlib import md5
 from functools import total_ordering
 from datetime import date, datetime, timedelta
 from typing import Optional, Tuple
@@ -173,3 +174,46 @@ def increment_seqnum(n: int) -> int:
 
     assert _MIN_INT32 <= n <= _MAX_INT32
     return _MIN_INT32 if n == _MAX_INT32 else n + 1
+
+
+def i64_to_hex_routing_key(n: int):
+    """Calculate a hexadecimal RabbitMQ routing key from a i64 number.
+
+    The hexadecimal routing key is calculated by placing the 8 bytes
+    of the number together, separated with dots. For example::
+
+      >>> i64_to_hex_routing_key(123)
+      '00.00.00.00.00.00.00.02'
+      >>> i64_to_hex_routing_key(-123)
+      'ff.ff.ff.ff.ff.ff.ff.fe'
+
+    """
+
+    bytes_n = n.to_bytes(8, byteorder='big', signed=True)
+    assert(len(bytes_n) == 8)
+    return '.'.join([format(byte, '02x') for byte in bytes_n])
+
+
+def calc_bin_routing_key(first: int, *rest: int) -> str:
+    """Calculate a binary RabbitMQ routing key from one or more i64 numbers.
+
+    The binary routing key is calculated by taking the highest 24
+    bits, separated with dots, of the MD5 digest of the passed
+    numbers. For example::
+
+      >>> calc_bin_routing_key(123)
+      '1.1.1.1.1.1.0.0.0.0.0.1.0.0.0.0.0.1.1.0.0.0.1.1'
+      >>> calc_bin_routing_key(-123)
+      '1.1.0.0.0.0.1.1.1.1.1.1.1.1.1.0.1.0.1.0.1.1.1.1'
+      >>> calc_bin_routing_key(123, 456)
+      '0.0.0.0.1.0.0.0.0.1.0.0.0.1.0.0.0.0.1.1.0.1.0.0'
+
+    """
+
+    m = md5()
+    m.update(first.to_bytes(8, byteorder='big', signed=True))
+    for n in rest:
+        m.update(n.to_bytes(8, byteorder='big', signed=True))
+    s = ''.join([format(byte, '08b') for byte in m.digest()[:3]])
+    assert(len(s) == 24)
+    return '.'.join(s)

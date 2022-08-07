@@ -126,3 +126,24 @@ def test_seqnum_class():
     assert c.Seqnum(0).increment().value == 1
     assert c.Seqnum(MAX_INT32).increment().value == MIN_INT32
     assert c.Seqnum(MIN_INT32).increment().value == MIN_INT32 + 1
+
+
+def test_calc_bin_routing_key():
+    assert c.calc_bin_routing_key(123) == '1.1.1.1.1.1.0.0.0.0.0.1.0.0.0.0.0.1.1.0.0.0.1.1'
+    assert c.calc_bin_routing_key(-123) == '1.1.0.0.0.0.1.1.1.1.1.1.1.1.1.0.1.0.1.0.1.1.1.1'
+    assert c.calc_bin_routing_key(123, 456) == '0.0.0.0.1.0.0.0.0.1.0.0.0.1.0.0.0.0.1.1.0.1.0.0'
+
+    with pytest.raises(OverflowError):
+        c.calc_bin_routing_key(99999999999999999999999999999999999)
+    with pytest.raises(Exception):
+        c.calc_bin_routing_key('')
+
+
+def test_i64_to_hex_routing_key():
+    assert c.i64_to_hex_routing_key(2) == '00.00.00.00.00.00.00.02'
+    assert c.i64_to_hex_routing_key(-2) == 'ff.ff.ff.ff.ff.ff.ff.fe'
+
+    with pytest.raises(OverflowError):
+        c.i64_to_hex_routing_key(99999999999999999999999999999999999)
+    with pytest.raises(Exception):
+        c.i64_to_hex_routing_key('')
