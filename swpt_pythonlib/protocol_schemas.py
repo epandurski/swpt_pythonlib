@@ -14,6 +14,7 @@ STATUS_CODE_MAX_BYTES = 30
 IRI_MAX_LENGTH = 200
 CONTENT_TYPE_MAX_BYTES = 100
 DEBTOR_INFO_SHA256_REGEX = r'^([0-9A-F]{64}|[0-9a-f]{64})?$'
+ROOT_CREDITOR_ID = 0
 
 
 class _ValidateMixin:
@@ -105,6 +106,15 @@ class PrepareTransferMessageSchema(_ValidateCoordinatorFieldsMixin, Schema):
     def validate_max_locked_amount(self, data, **kwargs):
         if data['min_locked_amount'] > data['max_locked_amount']:
             raise ValidationError("max_locked_amount must be equal or greater than min_locked_amount.")
+
+    @validates_schema
+    def validate_coordinator(self, data, **kwargs):
+        if data['coordinator_type'] == 'direct' and data['coordinator_id'] != data['creditor_id']:
+            raise ValidationError("Invalid coordinator_id for direct transfer.")
+        if data['coordinator_type'] == 'issuing' and data['coordinator_id'] != data['debtor_id']:
+            raise ValidationError("Invalid coordinator_id for issuing transfer.")
+        if data['coordinator_type'] == 'issuing' and data['creditor_id'] != ROOT_CREDITOR_ID:
+            raise ValidationError("Invalid sender creditor_id for issuing transfer.")
 
     @validates('recipient')
     def validate_recipient(self, value):

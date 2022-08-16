@@ -160,7 +160,7 @@ def test_prepare_transfer():
     "creditor_id": -1000000000000000,
     "debtor_id": -2000000000000000,
     "coordinator_type": "direct",
-    "coordinator_id": 1111111111111111,
+    "coordinator_id": -1000000000000000,
     "coordinator_request_id": 123456789012345,
     "min_locked_amount": 1000000000000,
     "max_locked_amount": 2000000000000,
@@ -175,7 +175,7 @@ def test_prepare_transfer():
     assert data['creditor_id'] == -1000000000000000
     assert data['debtor_id'] == -2000000000000000
     assert data['coordinator_type'] == 'direct'
-    assert data['coordinator_id'] == 1111111111111111
+    assert data['coordinator_id'] == -1000000000000000
     assert type(data['coordinator_id']) is int
     assert data['coordinator_request_id'] == 123456789012345
     assert type(data['coordinator_request_id']) is int
@@ -202,6 +202,40 @@ def test_prepare_transfer():
     wrong_recipient = s.dumps(wrong_recipient)
     with pytest.raises(ValidationError, match='The recipient field contains non-ASCII characters'):
         s.loads(wrong_recipient)
+
+    issuing = data.copy()
+    issuing['coordinator_type'] = 'issuing'
+    issuing['coordinator_id'] = data['debtor_id']
+    issuing['creditor_id'] = 0
+    s.loads(s.dumps(issuing))
+
+    other_coordinator = data.copy()
+    other_coordinator['coordinator_type'] = 'other'
+    other_coordinator['coordinator_id'] = 1111111111111111111
+    s.loads(s.dumps(other_coordinator))
+
+    s.loads(s.dumps(issuing))
+    wrong_direct_coordinator_id = data.copy()
+    wrong_direct_coordinator_id['coordinator_type'] = 'direct'
+    wrong_direct_coordinator_id['coordinator_id'] = 11111111111111111
+    wrong_direct_coordinator_id = s.dumps(wrong_direct_coordinator_id)
+    with pytest.raises(ValidationError, match='Invalid coordinator_id for direct transfer.'):
+        s.loads(wrong_direct_coordinator_id)
+
+    wrong_issuing_coordinator_id = data.copy()
+    wrong_issuing_coordinator_id['coordinator_type'] = 'issuing'
+    wrong_issuing_coordinator_id['coordinator_id'] = 11111111111111111
+    wrong_issuing_coordinator_id = s.dumps(wrong_issuing_coordinator_id)
+    with pytest.raises(ValidationError, match='Invalid coordinator_id for issuing transfer.'):
+        s.loads(wrong_issuing_coordinator_id)
+
+    wrong_issuing_creditor_id = data.copy()
+    wrong_issuing_creditor_id['coordinator_type'] = 'issuing'
+    wrong_issuing_creditor_id['coordinator_id'] = data['debtor_id']
+    wrong_issuing_creditor_id['creditor_id'] = 11111111111111111
+    wrong_issuing_creditor_id = s.dumps(wrong_issuing_creditor_id)
+    with pytest.raises(ValidationError, match='Invalid sender creditor_id for issuing transfer.'):
+        s.loads(wrong_issuing_creditor_id)
 
     try:
         s.loads('{}')
