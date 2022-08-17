@@ -2,6 +2,18 @@ Changelog
 =========
 
 
+Version 0.8.3
+-------------
+
+- Fix version issue
+
+
+Version 0.8.2
+-------------
+
+- Verify coordinator_id in PrepareTransfer messages
+
+
 Version 0.8.1
 -------------
 
