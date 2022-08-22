@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.8.4
+-------------
+
+- Improve flush waiting logic
+
+
 Version 0.8.3
 -------------
 

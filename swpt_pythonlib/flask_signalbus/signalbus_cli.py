@@ -58,7 +58,6 @@ def flush(signal_names, exclude, wait, repeat):
     logger.info('Started flushing %s.', ', '.join(m.__name__ for m in models_to_flush))
 
     while True:
-        started_at = time.time()
         try:
             if wait is not None:
                 signal_count = signalbus.flush(models_to_flush, wait=max(0.0, wait))
@@ -73,7 +72,7 @@ def flush(signal_names, exclude, wait, repeat):
         if repeat is None:
             break
         else:
-            time.sleep(max(0.0, repeat + started_at - time.time()))
+            time.sleep(max(0.0, repeat))
 
 
 @signalbus.command()
@@ -106,7 +105,6 @@ def flushmany(signal_names, exclude, repeat):
     logger.info('Started flushing %s.', ', '.join(m.__name__ for m in models_to_flush))
 
     while True:
-        started_at = time.time()
         try:
             signal_count = signalbus.flushmany(models_to_flush)
         except Exception:
@@ -118,7 +116,7 @@ def flushmany(signal_names, exclude, repeat):
         if repeat is None:
             break
         else:
-            time.sleep(max(0.0, repeat + started_at - time.time()))
+            time.sleep(max(0.0, repeat))
 
 
 @signalbus.command()
@@ -146,7 +144,6 @@ def flushordered(signal_names, exclude, repeat):
     logger.info('Started flushing %s.', ', '.join(m.__name__ for m in models_to_flush))
 
     while True:
-        started_at = time.time()
         try:
             signal_count = signalbus.flushordered(models_to_flush)
         except Exception:
@@ -158,7 +155,7 @@ def flushordered(signal_names, exclude, repeat):
         if repeat is None:
             break
         else:
-            time.sleep(max(0.0, repeat + started_at - time.time()))
+            time.sleep(max(0.0, repeat))
 
 
 @signalbus.command()
