@@ -182,9 +182,9 @@ def i64_to_hex_routing_key(n: int):
     The hexadecimal routing key is calculated by placing the 8 bytes
     of the number together, separated with dots. For example::
 
-      >>> i64_to_hex_routing_key(123)
+      >>> i64_to_hex_routing_key(2)
       '00.00.00.00.00.00.00.02'
-      >>> i64_to_hex_routing_key(-123)
+      >>> i64_to_hex_routing_key(-2)
       'ff.ff.ff.ff.ff.ff.ff.fe'
 
     """
