@@ -46,7 +46,7 @@ setup(
     install_requires=[
         'Flask>=1.0',
         'SQLAlchemy>=1.3',
-        'Flask-SQLAlchemy>=2.4',
+        'Flask-SQLAlchemy>=2.4,<3.0',
         'marshmallow>=3.10',
         'pika>=1.3',
     ],
