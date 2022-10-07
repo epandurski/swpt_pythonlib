@@ -5,6 +5,9 @@ This module adds to `Flask-SQLAlchemy`_ the capability to conveniently
 send messages (*signals*) over a message bus (`RabbitMQ`_ for
 example).
 
+**Important note:** This module works with Flask-SQLAlchemy 2.5, and
+does not work with Flask-SQLAlchemy 3.0 or later!
+
 The processing of each message involves three steps:
 
   1. One or more messages are recorded in the SQL database (as rows in
