@@ -6,7 +6,8 @@ send messages (*signals*) over a message bus (`RabbitMQ`_ for
 example).
 
 **Important note:** This module works with Flask-SQLAlchemy 2.5, and
-does not work with Flask-SQLAlchemy 3.0 or later!
+does not work with Flask-SQLAlchemy 3.0 or later! For this reason,
+SQLAlchemy 2.0 or later is not supported.
 
 The processing of each message involves three steps:
 
