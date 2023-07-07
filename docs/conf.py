@@ -84,7 +84,7 @@ html_theme = 'alabaster'
 # documentation.
 #
 html_theme_options = {
-    'navigation_depth': 2,
+    'navigation_depth': 1,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
