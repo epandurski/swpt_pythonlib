@@ -34,6 +34,7 @@ class ShardingRealm:
     for the given creditor/debtor/pair.
 
     Example::
+
       >>> r = ShardingRealm('1.#')
       >>> r.match(1)
       True
