@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import re
 from hashlib import md5
 from functools import total_ordering
 from datetime import date, datetime, timedelta
@@ -16,10 +17,56 @@ _I64_SPAN = _MAX_UINT64 + 1
 _DATE_1970_01_01 = date(1970, 1, 1)
 _TD_PLUS_SECOND = timedelta(seconds=1)
 _TD_MINUS_SECOND = timedelta(seconds=-1)
+_RE_ROUTING_KEY = re.compile(r'^((?:[01]\.){0,20})\#$')
 
 
 class _MISSING:
     pass
+
+
+class ShardingRealm:
+    """Holds a sharding key and a sharding mask.
+
+    This class allows to easily check if a given shard is responsible for a
+    given creditor/debtor ID (or a debtor ID, creditor ID pair).
+
+    Also, it is possible to check if the parent shard would be responsible
+    for the given creditor/debtor/pair.
+
+    Example::
+      >>> r = ShardingRealm('1.#')
+      >>> r.match(1)
+      True
+      >>> r.match(3)
+      False
+      >>> r.match(3, match_parent=True)  # The parent shard is "#"
+      True
+      >>> r.match(1, 2)  # ID pair
+      True
+
+    """
+
+    def __init__(self, routing_key: str):
+        m = _RE_ROUTING_KEY.match(routing_key)
+        if m is None:
+            raise ValueError('invalid routing key')
+
+        bits = m[1].replace('.', '')
+        n = len(bits)
+        assert n <= 32
+        m = 32 - n
+        self.realm_mask = ((1 << n) - 1) << m
+        self.realm = int('0' + bits, 2) << m
+        self.parent_realm_mask = self.realm_mask & (self.realm_mask << 1)
+        self.parent_realm = self.realm & self.parent_realm_mask
+
+    def match(self, first: int, *rest: int, match_parent=False) -> bool:
+        md5_hash = _calc_md5_hash(first, *rest)
+        sharding_key = int.from_bytes(md5_hash[:4], byteorder='big')
+        if match_parent:
+            return sharding_key & self.parent_realm_mask == self.parent_realm
+        else:
+            return sharding_key & self.realm_mask == self.realm
 
 
 @total_ordering
@@ -190,7 +237,7 @@ def i64_to_hex_routing_key(n: int):
     """
 
     bytes_n = n.to_bytes(8, byteorder='big', signed=True)
-    assert(len(bytes_n) == 8)
+    assert len(bytes_n) == 8
     return '.'.join([format(byte, '02x') for byte in bytes_n])
 
 
@@ -210,10 +257,15 @@ def calc_bin_routing_key(first: int, *rest: int) -> str:
 
     """
 
+    md5_hash = _calc_md5_hash(first, *rest)
+    s = ''.join([format(byte, '08b') for byte in md5_hash[:3]])
+    assert len(s) == 24
+    return '.'.join(s)
+
+
+def _calc_md5_hash(first: int, *rest: int) -> bytes:
     m = md5()
     m.update(first.to_bytes(8, byteorder='big', signed=True))
     for n in rest:
         m.update(n.to_bytes(8, byteorder='big', signed=True))
-    s = ''.join([format(byte, '08b') for byte in m.digest()[:3]])
-    assert(len(s) == 24)
-    return '.'.join(s)
+    return m.digest()
