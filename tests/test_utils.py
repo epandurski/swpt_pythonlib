@@ -147,3 +147,33 @@ def test_i64_to_hex_routing_key():
         c.i64_to_hex_routing_key(99999999999999999999999999999999999)
     with pytest.raises(Exception):
         c.i64_to_hex_routing_key('')
+
+
+def test_sharding_realm():
+    with pytest.raises(ValueError):
+        c.ShardingRealm('INVALID')
+
+    r = c.ShardingRealm('#')
+    for n in range(100):
+        assert r.match(n)
+        assert r.match(n, match_parent=False)
+        assert r.match(n, match_parent=True)
+
+    r = c.ShardingRealm('1.1.1.1.1.1.0.#')
+    assert r.match(123)
+    assert not r.match(124)
+
+    r = c.ShardingRealm('0.0.0.0.1.0.#')
+    assert r.match(123, 456)
+    assert not r.match(123, 457)
+    assert not r.match(124, 456)
+
+    r = c.ShardingRealm('0.1.#')
+    rp = c.ShardingRealm('0.#')
+    for n in range(100):
+        assert r.match(n, match_parent=True) == rp.match(n)
+
+    r = c.ShardingRealm('1.0.#')
+    rp = c.ShardingRealm('1.#')
+    for n in range(100):
+        assert r.match(n, match_parent=True) == rp.match(n)
