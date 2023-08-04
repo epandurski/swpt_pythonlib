@@ -28,7 +28,7 @@ pytest_runner = ['pytest-runner'] if needs_pytest else []
 
 setup(
     name='Swpt-Pythonlib',
-    version='0.8.4',
+    version='0.8.6',
     url='https://github.com/swaptacular/swpt_pythonlib',
     license='MIT',
     author='Evgeni Pandurski',

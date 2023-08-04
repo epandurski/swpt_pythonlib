@@ -2,6 +2,18 @@ Changelog
 =========
 
 
+Version 0.8.6
+-------------
+
+- Fix package version problem
+
+
+Version 0.8.5
+-------------
+
+- Implement ShardingRealm class
+
+
 Version 0.8.4
 -------------
 
