@@ -2,6 +2,13 @@ Changelog
 =========
 
 
+Version 0.8.7
+-------------
+
+- Improve flush wait logic
+- Improve doc-strings
+
+
 Version 0.8.6
 -------------
 

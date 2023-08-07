@@ -29,22 +29,6 @@ class ShardingRealm:
 
     This class allows to easily check if a given shard is responsible for a
     given creditor/debtor ID (or a debtor ID, creditor ID pair).
-
-    Also, it is possible to check if the parent shard would be responsible
-    for the given creditor/debtor/pair.
-
-    Example::
-
-      >>> r = ShardingRealm('1.#')
-      >>> r.match(1)
-      True
-      >>> r.match(3)
-      False
-      >>> r.match(3, match_parent=True)  # The parent shard is "#"
-      True
-      >>> r.match(1, 2)  # ID pair
-      True
-
     """
 
     def __init__(self, routing_key: str):
@@ -62,6 +46,25 @@ class ShardingRealm:
         self.parent_realm = self.realm & self.parent_realm_mask
 
     def match(self, first: int, *rest: int, match_parent=False) -> bool:
+        """Return whether the shard is responsible for the passed sharding key.
+
+        Also, it is possible to check whether the parent shard would be
+        responsible for the passed sharding key.
+
+        Example::
+
+          >>> r = ShardingRealm('1.#')
+          >>> r.match(1)
+          True
+          >>> r.match(3)
+          False
+          >>> r.match(3, match_parent=True)  # The parent shard is "#"
+          True
+          >>> r.match(1, 2)  # (Debtor ID, Creditor ID) pair
+          True
+
+        """
+
         md5_hash = _calc_md5_hash(first, *rest)
         sharding_key = int.from_bytes(md5_hash[:4], byteorder='big')
         if match_parent:
