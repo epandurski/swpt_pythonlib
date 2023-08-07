@@ -16,76 +16,6 @@ __all__ = ['AtomicProceduresMixin']
 _ATOMIC_FLAG_SESSION_INFO_KEY = 'flask_signalbus__atomic_flag'
 
 
-class _ModelUtilitiesMixin(object):
-    @classmethod
-    def get_instance(cls, instance_or_pk, *options):
-        """Return a model instance in ``db.session`` or `None`.
-
-        :param instance_or_pk: An instance of this model class, or a
-          primary key. A composite primary key can be passed as a
-          tuple.
-        :param options: Arguments to be passed to
-          :meth:`~sqlalchemy.orm.query.Query.options`.
-
-        Example::
-
-          @db.atomic
-          def increase_account_balance(account, amount):
-              # Here `Account` is a subclass of `db.Model`.
-              account = Account.get_instance(account)
-              account.balance += amount
-
-          # Now `increase_account_balance` can be
-          # called with an account instance:
-          increase_account_balance(my_account, 100.00)
-
-          # or with an account primary key (1234):
-          increase_account_balance(1234, 100.00)
-
-        """
-
-        if isinstance(instance_or_pk, cls):
-            if instance_or_pk in cls._flask_signalbus_sa.session:
-                return instance_or_pk
-            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
-        return cls.query.options(*options).get(instance_or_pk)
-
-    @classmethod
-    def lock_instance(cls, instance_or_pk, *options, **kw):
-        """Return a locked model instance in ``db.session`` or `None`.
-
-        :param instance_or_pk: An instance of this model class, or a
-          primary key. A composite primary key can be passed as a
-          tuple.
-        :param options: Arguments to be passed to
-          :meth:`~sqlalchemy.orm.query.Query.options`.
-        :param kw: Arguments to be passed to
-          :meth:`~sqlalchemy.orm.query.Query.with_for_update`.
-
-        """
-
-        mapper = inspect(cls)
-        pk_attrs = [mapper.get_property_by_column(c).class_attribute for c in mapper.primary_key]
-        pk_values = cls.get_pk_values(instance_or_pk)
-        clause = and_(*[attr == value for attr, value in zip(pk_attrs, pk_values)])
-        return cls.query.options(*options).filter(clause).with_for_update(**kw).one_or_none()
-
-    @classmethod
-    def get_pk_values(cls, instance_or_pk):
-        """Return a primary key as a tuple.
-
-        :param instance_or_pk: An instance of this model class, or a
-          primary key. A composite primary key can be passed as a
-          tuple.
-
-        """
-
-        if isinstance(instance_or_pk, cls):
-            cls._flask_signalbus_sa.session.flush()
-            instance_or_pk = inspect(cls).primary_key_from_instance(instance_or_pk)
-        return instance_or_pk if isinstance(instance_or_pk, tuple) else (instance_or_pk,)
-
-
 class AtomicProceduresMixin(object):
     """A **mixin class** that adds utility functions to
     :class:`flask_sqlalchemy.SQLAlchemy` and the declarative base.
@@ -109,26 +39,19 @@ class AtomicProceduresMixin(object):
 
     1. `AtomicProceduresMixin` methods will be available in ``db``.
 
-    2. The classmethods from
-       :class:`~swpt_pythonlib.flask_signalbus.atomic._ModelUtilitiesMixin`
-       will be available in the declarative base class (``db.Model``),
-       and therefore in every model class.
-
-    3. Database isolation level will be set to ``REPEATABLE_READ``.
+    2. If not explicitly configured, the database isolation level will be
+       set to ``REPEATABLE_READ``.
 
     """
 
-    def apply_driver_hacks(self, app, info, options):
-        if info.drivername != 'sqlite' and "isolation_level" not in options:
-            options["isolation_level"] = "REPEATABLE_READ"
-        return super(AtomicProceduresMixin, self).apply_driver_hacks(app, info, options)
+    def __init__(self, *args, engine_options=None, **kwargs):
+        options = engine_options or {}
+        if "isolation_level" not in options:
+            engine_options = options.copy()
+            engine_options["isolation_level"] = "REPEATABLE READ"
 
-    def make_declarative_base(self, model, *args, **kwargs):
-        class model(_ModelUtilitiesMixin, model):
-            pass
-        declarative_base = super(AtomicProceduresMixin, self).make_declarative_base(model, *args, **kwargs)
-        declarative_base._flask_signalbus_sa = self
-        return declarative_base
+        super().__init__(*args, engine_options=engine_options, **kwargs)
+
 
     def atomic(self, func):
         """A decorator that wraps a function in an atomic block.
