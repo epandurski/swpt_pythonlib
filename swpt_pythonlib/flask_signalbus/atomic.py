@@ -18,7 +18,7 @@ _ATOMIC_FLAG_SESSION_INFO_KEY = 'flask_signalbus__atomic_flag'
 
 class AtomicProceduresMixin(object):
     """A **mixin class** that adds utility functions to
-    :class:`flask_sqlalchemy.SQLAlchemy` and the declarative base.
+    :class:`flask_sqlalchemy.SQLAlchemy`.
 
     For example::
 
