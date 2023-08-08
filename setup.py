@@ -28,7 +28,7 @@ pytest_runner = ['pytest-runner'] if needs_pytest else []
 
 setup(
     name='Swpt-Pythonlib',
-    version='0.8.7',
+    version='0.9.0',
     url='https://github.com/swaptacular/swpt_pythonlib',
     license='MIT',
     author='Evgeni Pandurski',
@@ -44,9 +44,9 @@ setup(
     platforms='any',
     setup_requires=pytest_runner,
     install_requires=[
-        'Flask>=1.0',
-        'SQLAlchemy>=1.3,<2.0',
-        'Flask-SQLAlchemy>=2.4,<3.0',
+        'Flask>=2.2.5',
+        'SQLAlchemy>=1.4.18',
+        'Flask-SQLAlchemy>=3.0.5',
         'marshmallow>=3.10',
         'pika>=1.3',
     ],

@@ -27,19 +27,20 @@ def app(request):
     app = flask.Flask(request.module.__name__)
     app.testing = True
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'isolation_level': 'SERIALIZABLE',
+    }
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_RECORD_QUERIES'] = True
     app.config['SIGNALBUS_RABBITMQ_URL'] = '?heartbeat=5'
     app.config['SIGNALBUS_RABBITMQ_QUEUE'] = 'test'
-    return app
+    with app.app_context():
+        yield app
 
 
-@pytest.fixture(params=['direct', 'mixin_bound', 'mixin_init_app'])
+@pytest.fixture(params=['mixin_bound', 'mixin_init_app'])
 def db(app, request):
-    if request.param == 'direct':
-        db = fsa.SQLAlchemy(app)
-        db.signalbus = fsb.SignalBus(db)
-    elif request.param == 'mixin_bound':
+    if request.param == 'mixin_bound':
         db = SignalBusAlchemy(app)
     elif request.param == 'mixin_init_app':
         db = SignalBusAlchemy()
@@ -47,7 +48,6 @@ def db(app, request):
         db.app = app
 
     assert hasattr(db, 'signalbus')
-    assert db.get_app()
     return db
 
 
@@ -56,7 +56,6 @@ def atomic_db(app):
     db = AtomicSQLAlchemy()
     db.init_app(app)
     db.app = app
-    assert db.get_app()
     return db
 
 
@@ -124,9 +123,7 @@ def SignalSendMany(db, send_mock):
         id = db.Column(db.Integer, primary_key=True)
         value = db.Column(db.String(60))
 
-        signalbus_autoflush = False
         signalbus_burst_count = 100
-        signalbus_order_by = (value,)
 
         def send_signalbus_message(self):
             pass
@@ -145,10 +142,12 @@ def SignalSendMany(db, send_mock):
 def SignalProperty(db, send_mock, Signal):
     class SignalProperty(db.Model):
         __tablename__ = 'test_signal_property'
-        signal_id = db.Column(db.ForeignKey(Signal.id, ondelete='CASCADE'), primary_key=True)
+        signal_id = db.Column(
+            db.ForeignKey(Signal.id, ondelete='CASCADE'), primary_key=True)
         name = db.Column(db.String(60), primary_key=True)
         value = db.Column(db.String(60))
-        signal = db.relationship(Signal, backref=db.backref("properties", passive_deletes='all'))
+        signal = db.relationship(
+            Signal, backref=db.backref("properties", passive_deletes='all'))
 
     db.create_all()
     yield SignalProperty

@@ -2,6 +2,15 @@ Changelog
 =========
 
 
+Version 0.9.0
+-------------
+
+- Add type annotations
+- Support SQLAlchemy 2 and Flask-SQLAlchemy 3
+- Throw away unused code in the `flask_signalbus` module
+- Follow PEP8 more closely
+
+
 Version 0.8.7
 -------------
 

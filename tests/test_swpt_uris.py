@@ -1,5 +1,6 @@
 import pytest
-from swpt_pythonlib.swpt_uris import parse_debtor_uri, parse_account_uri, make_debtor_uri, make_account_uri
+from swpt_pythonlib.swpt_uris import (
+    parse_debtor_uri, parse_account_uri, make_debtor_uri, make_account_uri)
 
 
 def test_parse_debtor_uri():

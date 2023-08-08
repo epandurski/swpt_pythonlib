@@ -43,7 +43,8 @@ def test_configure_account():
     wrong_config_data = data.copy()
     wrong_config_data['config_data'] = 1500 * 'Щ'
     wrong_config_data = s.dumps(wrong_config_data)
-    with pytest.raises(ValidationError, match='The length of config_data exceeds 2000 bytes'):
+    with pytest.raises(ValidationError,
+                       match='The length of config_data exceeds 2000 bytes'):
         s.loads(wrong_config_data)
 
     with pytest.raises(ValidationError, match='Invalid input type'):
@@ -68,13 +69,15 @@ def test_configure_account():
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_configure_account_infinity():
     s = ps.ConfigureAccountMessageSchema()
 
-    with pytest.raises(ValidationError, match=r'Special numeric values \(nan or infinity\) are not permitted'):
+    with pytest.raises(ValidationError, match=r'Special numeric values '
+                       '\(nan or infinity\) are not permitted'):
         s.loads("""{
         "type": "ConfigureAccount",
         "creditor_id": 1,
@@ -87,7 +90,8 @@ def test_configure_account_infinity():
         "unknown": "ignored"
         }""")
 
-    with pytest.raises(ValidationError, match=r'Special numeric values \(nan or infinity\) are not permitted'):
+    with pytest.raises(ValidationError, match=r'Special numeric values '
+                       '\(nan or infinity\) are not permitted'):
         s.load({
             "type": "ConfigureAccount",
             "creditor_id": 1,
@@ -128,7 +132,8 @@ def test_rejected_config():
     assert type(data['config_flags']) is int
     assert data['config_seqnum'] == 2147483647
     assert type(data['config_seqnum']) is int
-    assert data['config_ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
+    assert data['config_ts'] == datetime.fromisoformat(
+        '2022-01-01T00:00:00+00:00')
     assert data['rejection_code'] == 'ERROR2'
     assert data['ts'] == datetime.fromisoformat('2022-01-02T00:00:00+00:00')
     assert "unknown" not in data
@@ -136,20 +141,24 @@ def test_rejected_config():
     wrong_rejection_code = data.copy()
     wrong_rejection_code['rejection_code'] = 'Кирилица'
     wrong_rejection_code = s.dumps(wrong_rejection_code)
-    with pytest.raises(ValidationError, match='The rejection_code field contains non-ASCII characters'):
+    with pytest.raises(
+            ValidationError,
+            match='The rejection_code field contains non-ASCII characters'):
         s.loads(wrong_rejection_code)
 
     wrong_config_data = data.copy()
     wrong_config_data['config_data'] = 1500 * 'Щ'
     wrong_config_data = s.dumps(wrong_config_data)
-    with pytest.raises(ValidationError, match='The length of config_data exceeds 2000 bytes'):
+    with pytest.raises(ValidationError,
+                       match='The length of config_data exceeds 2000 bytes'):
         s.loads(wrong_config_data)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_prepare_transfer():
@@ -194,13 +203,15 @@ def test_prepare_transfer():
     wrong_max_locked_amount = data.copy()
     wrong_max_locked_amount['max_locked_amount'] = 0
     wrong_max_locked_amount = s.dumps(wrong_max_locked_amount)
-    with pytest.raises(ValidationError, match='max_locked_amount must be equal or greater than min_locked_amount'):
+    with pytest.raises(ValidationError, match='max_locked_amount must be '
+                       'equal or greater than min_locked_amount'):
         s.loads(wrong_max_locked_amount)
 
     wrong_recipient = data.copy()
     wrong_recipient['recipient'] = 'Кирилица'
     wrong_recipient = s.dumps(wrong_recipient)
-    with pytest.raises(ValidationError, match='The recipient field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The recipient field contains '
+                       'non-ASCII characters'):
         s.loads(wrong_recipient)
 
     issuing = data.copy()
@@ -219,14 +230,16 @@ def test_prepare_transfer():
     wrong_direct_coordinator_id['coordinator_type'] = 'direct'
     wrong_direct_coordinator_id['coordinator_id'] = 11111111111111111
     wrong_direct_coordinator_id = s.dumps(wrong_direct_coordinator_id)
-    with pytest.raises(ValidationError, match='Invalid coordinator_id for direct transfer.'):
+    with pytest.raises(ValidationError,
+                       match='Invalid coordinator_id for direct transfer.'):
         s.loads(wrong_direct_coordinator_id)
 
     wrong_issuing_coordinator_id = data.copy()
     wrong_issuing_coordinator_id['coordinator_type'] = 'issuing'
     wrong_issuing_coordinator_id['coordinator_id'] = 11111111111111111
     wrong_issuing_coordinator_id = s.dumps(wrong_issuing_coordinator_id)
-    with pytest.raises(ValidationError, match='Invalid coordinator_id for issuing transfer.'):
+    with pytest.raises(ValidationError,
+                       match='Invalid coordinator_id for issuing transfer.'):
         s.loads(wrong_issuing_coordinator_id)
 
     wrong_issuing_creditor_id = data.copy()
@@ -234,14 +247,16 @@ def test_prepare_transfer():
     wrong_issuing_creditor_id['coordinator_id'] = data['debtor_id']
     wrong_issuing_creditor_id['creditor_id'] = 11111111111111111
     wrong_issuing_creditor_id = s.dumps(wrong_issuing_creditor_id)
-    with pytest.raises(ValidationError, match='Invalid sender creditor_id for issuing transfer.'):
+    with pytest.raises(ValidationError, match='Invalid sender creditor_id '
+                       'for issuing transfer.'):
         s.loads(wrong_issuing_creditor_id)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_prepared_transfer():
@@ -276,9 +291,11 @@ def test_prepared_transfer():
     assert data['locked_amount'] == 1230000000000
     assert type(data['locked_amount']) is int
     assert data['recipient'] == 'test recipient'
-    assert data['prepared_at'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
+    assert data['prepared_at'] == datetime.fromisoformat(
+        '2022-01-01T00:00:00+00:00')
     assert data['demurrage_rate'] == -5.5
-    assert data['deadline'] == datetime.fromisoformat('2022-02-01T00:00:00+00:00')
+    assert data['deadline'] == datetime.fromisoformat(
+        '2022-02-01T00:00:00+00:00')
     assert data['min_interest_rate'] == -10
     assert type(data['min_interest_rate']) is float
     assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
@@ -287,14 +304,16 @@ def test_prepared_transfer():
     wrong_recipient = data.copy()
     wrong_recipient['recipient'] = 'Кирилица'
     wrong_recipient = s.dumps(wrong_recipient)
-    with pytest.raises(ValidationError, match='The recipient field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The recipient field contains '
+                       'non-ASCII characters'):
         s.loads(wrong_recipient)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_finalize_transfer():
@@ -333,14 +352,16 @@ def test_finalize_transfer():
     wrong_transfer_note = data.copy()
     wrong_transfer_note['transfer_note'] = 350 * 'Щ'
     wrong_transfer_note = s.dumps(wrong_transfer_note)
-    with pytest.raises(ValidationError, match='The length of transfer_note exceeds 500 bytes'):
+    with pytest.raises(ValidationError,
+                       match='The length of transfer_note exceeds 500 bytes'):
         s.loads(wrong_transfer_note)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_finalized_transfer():
@@ -375,27 +396,31 @@ def test_finalized_transfer():
     assert data['status_code'] == 'OK'
     assert data['total_locked_amount'] == 0
     assert type(data['total_locked_amount']) is int
-    assert data['prepared_at'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
+    assert data['prepared_at'] == datetime.fromisoformat(
+        '2022-01-01T00:00:00+00:00')
     assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:05+00:00')
     assert "unknown" not in data
 
     wrong_status_code1 = data.copy()
     wrong_status_code1['status_code'] = 'NOT OK'
     wrong_status_code1 = s.dumps(wrong_status_code1)
-    with pytest.raises(ValidationError, match='The committed_amount must be zero when status_code is not "OK"'):
+    with pytest.raises(ValidationError, match='The committed_amount must be '
+                       'zero when status_code is not "OK"'):
         s.loads(wrong_status_code1)
 
     wrong_status_code2 = data.copy()
     wrong_status_code2['status_code'] = 'Кирилица'
     wrong_status_code2 = s.dumps(wrong_status_code2)
-    with pytest.raises(ValidationError, match='The status_code field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The status_code field '
+                       'contains non-ASCII characters'):
         s.loads(wrong_status_code2)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_rejected_transfer():
@@ -429,19 +454,22 @@ def test_rejected_transfer():
     wrong_status_code1 = data.copy()
     wrong_status_code1['status_code'] = 'OK'
     wrong_status_code1 = s.dumps(wrong_status_code1)
-    with pytest.raises(ValidationError, match='The status_code field contains an invalid value'):
+    with pytest.raises(ValidationError, match='The status_code field '
+                       'contains an invalid value'):
         s.loads(wrong_status_code1)
 
     wrong_status_code2 = data.copy()
     wrong_status_code2['status_code'] = 'Кирилица'
     wrong_status_code2 = s.dumps(wrong_status_code2)
-    with pytest.raises(ValidationError, match='The status_code field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The status_code field '
+                       'contains non-ASCII characters'):
         s.loads(wrong_status_code2)
 
     wrong_coordinator_type = data.copy()
     wrong_coordinator_type['coordinator_type'] = 'Кирилица'
     wrong_coordinator_type = s.dumps(wrong_coordinator_type)
-    with pytest.raises(ValidationError, match='The coordinator_type field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The coordinator_type field '
+                       'contains non-ASCII characters'):
         s.loads(wrong_coordinator_type)
 
     empty_coordinator_type = data.copy()
@@ -454,7 +482,8 @@ def test_rejected_transfer():
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_account_purge():
@@ -480,7 +509,8 @@ def test_account_purge():
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_account_update():
@@ -520,13 +550,16 @@ def test_account_update():
     assert data['creditor_id'] == 1000000000000000
     assert data['debtor_id'] == 2000000000000000
     assert data['creation_date'] == date(2021, 1, 30)
-    assert data['last_change_ts'] == datetime.fromisoformat('2022-01-01T00:00:01+00:00')
+    assert data['last_change_ts'] == datetime.fromisoformat(
+        '2022-01-01T00:00:01+00:00')
     assert data['last_change_seqnum'] == 1
     assert data['principal'] == 12340000000000
     assert data['interest'] == -1e6
     assert data['interest_rate'] == -7.7
-    assert data['last_interest_rate_change_ts'] == datetime.fromisoformat('2022-01-01T00:00:02+00:00')
-    assert data['last_config_ts'] == datetime.fromisoformat('2022-01-01T00:00:03+00:00')
+    assert data['last_interest_rate_change_ts'] == datetime.fromisoformat(
+        '2022-01-01T00:00:02+00:00')
+    assert data['last_config_ts'] == datetime.fromisoformat(
+        '2022-01-01T00:00:03+00:00')
     assert data['last_config_seqnum'] == -1
     assert data['negligible_amount'] == 3.14
     assert data['config_flags'] == 64
@@ -534,9 +567,10 @@ def test_account_update():
     assert data['account_id'] == "test account"
     assert data['debtor_info_iri'] == "https://example.com/"
     assert data['debtor_info_content_type'] == "text/plain"
-    assert data['debtor_info_sha256'] == "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    assert data['debtor_info_sha256'] == 64 * "f"
     assert data['last_transfer_number'] == 0
-    assert data['last_transfer_committed_at'] == datetime.fromisoformat('2022-01-01T00:00:04+00:00')
+    assert data['last_transfer_committed_at'] == datetime.fromisoformat(
+        '2022-01-01T00:00:04+00:00')
     assert data['demurrage_rate'] == -6.28
     assert data['commit_period'] == 86400
     assert data['transfer_note_max_bytes'] == 100
@@ -547,26 +581,30 @@ def test_account_update():
     wrong_config_data = data.copy()
     wrong_config_data['config_data'] = 1500 * 'Щ'
     wrong_config_data = s.dumps(wrong_config_data)
-    with pytest.raises(ValidationError, match='The length of config_data exceeds 2000 bytes'):
+    with pytest.raises(ValidationError,
+                       match='The length of config_data exceeds 2000 bytes'):
         s.loads(wrong_config_data)
 
     wrong_account_id = data.copy()
     wrong_account_id['account_id'] = 'Кирилица'
     wrong_account_id = s.dumps(wrong_account_id)
-    with pytest.raises(ValidationError, match='The account_id field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The account_id field '
+                       'contains non-ASCII characters'):
         s.loads(wrong_account_id)
 
     wrong_content_type = data.copy()
     wrong_content_type['debtor_info_content_type'] = 'Кирилица'
     wrong_content_type = s.dumps(wrong_content_type)
-    with pytest.raises(ValidationError, match='The debtor_info_content_type field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The debtor_info_content_type '
+                       'field contains non-ASCII characters'):
         s.loads(wrong_content_type)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_account_transfer():
@@ -604,7 +642,8 @@ def test_account_transfer():
     assert type(data['acquired_amount']) is int
     assert data['transfer_note'] == 'test note'
     assert data['transfer_note_format'] == ''
-    assert data['committed_at'] == datetime.fromisoformat('2022-01-01T00:00:01+00:00')
+    assert data['committed_at'] == datetime.fromisoformat(
+        '2022-01-01T00:00:01+00:00')
     assert data['principal'] == -100000000000000
     assert type(data['principal']) is int
     assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
@@ -614,38 +653,44 @@ def test_account_transfer():
     wrong_acquired_amount = data.copy()
     wrong_acquired_amount['acquired_amount'] = 0
     wrong_acquired_amount = s.dumps(wrong_acquired_amount)
-    with pytest.raises(ValidationError, match='The acquired_amount field is zero, which is not allowed'):
+    with pytest.raises(ValidationError, match='The acquired_amount field is '
+                       'zero, which is not allowed'):
         s.loads(wrong_acquired_amount)
 
     wrong_transfer_note = data.copy()
     wrong_transfer_note['transfer_note'] = 350 * 'Щ'
     wrong_transfer_note = s.dumps(wrong_transfer_note)
-    with pytest.raises(ValidationError, match='The length of transfer_note exceeds 500 bytes'):
+    with pytest.raises(ValidationError,
+                       match='The length of transfer_note exceeds 500 bytes'):
         s.loads(wrong_transfer_note)
 
     wrong_sender = data.copy()
     wrong_sender['sender'] = 'Кирилица'
     wrong_sender = s.dumps(wrong_sender)
-    with pytest.raises(ValidationError, match='The sender field contains non-ASCII characters'):
+    with pytest.raises(ValidationError,
+                       match='The sender field contains non-ASCII characters'):
         s.loads(wrong_sender)
 
     wrong_recipient = data.copy()
     wrong_recipient['recipient'] = 'Кирилица'
     wrong_recipient = s.dumps(wrong_recipient)
-    with pytest.raises(ValidationError, match='The recipient field contains non-ASCII characters'):
+    with pytest.raises(ValidationError, match='The recipient field contains '
+                       'non-ASCII characters'):
         s.loads(wrong_recipient)
 
     wrong_transfer_number = data.copy()
     wrong_transfer_number['transfer_number'] = 333333333333332
     wrong_transfer_number = s.dumps(wrong_transfer_number)
-    with pytest.raises(ValidationError, match='transfer_number must be greater than previous_transfer_number'):
+    with pytest.raises(ValidationError, match='transfer_number must be '
+                       'greater than previous_transfer_number'):
         s.loads(wrong_transfer_number)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
 
 
 def test_pending_balance_change():
@@ -673,7 +718,8 @@ def test_pending_balance_change():
     assert data['coordinator_type'] == 'direct'
     assert data['transfer_note'] == 'test note'
     assert data['transfer_note_format'] == ''
-    assert data['committed_at'] == datetime.fromisoformat('2022-01-01T00:00:01+00:00')
+    assert data['committed_at'] == datetime.fromisoformat(
+        '2022-01-01T00:00:01+00:00')
     assert data['principal_delta'] == 1230000000000
     assert type(data['principal_delta']) is int
     assert data['other_creditor_id'] == 0
@@ -683,11 +729,13 @@ def test_pending_balance_change():
     wrong_principal_delta = data.copy()
     wrong_principal_delta['principal_delta'] = 0
     wrong_principal_delta = s.dumps(wrong_principal_delta)
-    with pytest.raises(ValidationError, match='The principal_delta field is zero, which is not allowed'):
+    with pytest.raises(ValidationError, match='The principal_delta field is '
+                       'zero, which is not allowed'):
         s.loads(wrong_principal_delta)
 
     try:
         s.loads('{}')
     except ValidationError as e:
         assert len(e.messages) == len(data)
-        assert all(m == ['Missing data for required field.'] for m in e.messages.values())
+        assert all(m == ['Missing data for required field.']
+                   for m in e.messages.values())
