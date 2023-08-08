@@ -39,9 +39,9 @@ class ShardingRealm:
         bits = m[1].replace('.', '')
         n = len(bits)
         assert n <= 32
-        m = 32 - n
-        self.realm_mask = ((1 << n) - 1) << m
-        self.realm = int('0' + bits, 2) << m
+        p = 32 - n
+        self.realm_mask = ((1 << n) - 1) << p
+        self.realm = int('0' + bits, 2) << p
         self.parent_realm_mask = self.realm_mask & (self.realm_mask << 1)
         self.parent_realm = self.realm & self.parent_realm_mask
 
@@ -86,8 +86,8 @@ class Seqnum:
         assert _MIN_INT32 <= value <= _MAX_INT32
         self.value = value
 
-    def __eq__(self, other: Seqnum):
-        return self.value == other.value
+    def __eq__(self, other: object):
+        return isinstance(other, Seqnum) and self.value == other.value
 
     def __gt__(self, other: Seqnum):
         return 0 < (self.value - other.value) % 0x100000000 < 0x80000000
@@ -110,11 +110,15 @@ def get_config_value(key: str) -> Optional[str]:
 
     """
 
-    app_config_value = current_app.config.get(key, _MISSING) if current_app else _MISSING
+    app_config_value = (
+        current_app.config.get(key, _MISSING) if current_app else _MISSING)
+
     if app_config_value is _MISSING:
         return os.environ.get(key)
+
     if not isinstance(app_config_value, str):
         raise ValueError(f'a non-string value for "{key}"')
+
     return app_config_value
 
 
@@ -188,7 +192,10 @@ def date_to_int24(d: date) -> int:
     return days
 
 
-def is_later_event(event: Tuple[datetime, int], other_event: Tuple[Optional[datetime], Optional[int]]) -> bool:
+def is_later_event(
+        event: Tuple[datetime, int],
+        other_event: Tuple[Optional[datetime], Optional[int]],
+) -> bool:
     """Return whether `event` is later than `other_event`.
 
     Each of the passed events must be a (`datetime`, `int`) tuple. The
@@ -217,7 +224,10 @@ def is_later_event(event: Tuple[datetime, int], other_event: Tuple[Optional[date
         return True
     if advance <= _TD_MINUS_SECOND:
         return False
-    return other_seqnum is None or 0 < (seqnum - other_seqnum) % 0x100000000 < 0x80000000
+    return (
+        other_seqnum is None
+        or 0 < (seqnum - other_seqnum) % 0x100000000 < 0x80000000
+    )
 
 
 def increment_seqnum(n: int) -> int:

@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import timedelta
 import pytest
-from sqlalchemy import MetaData, Table, Column, Integer, String, create_engine
+from sqlalchemy import MetaData, Table, Column, Integer, String, create_engine, text
 from swpt_pythonlib.scan_table import _TableReader, TableScanner
 
 
@@ -21,12 +21,14 @@ def user_table():
 @pytest.fixture(scope='session')
 def engine(user_table):
     engine = create_engine(os.environ['SQLALCHEMY_DATABASE_URI'])
+    connection = engine.connect()
     user_table.metadata.drop_all(engine)
     user_table.metadata.create_all(engine)
     for i in range(10):
         stmt = user_table.insert().values(user_id=i, user_name=f'user_{i}', email_address='user_{i}@example.com')
-        engine.execute(stmt)
-    engine.execute('ANALYZE user_table')
+        with connection.begin():
+            connection.execute(stmt)
+    connection.execute(text('ANALYZE user_table'))
     return engine
 
 

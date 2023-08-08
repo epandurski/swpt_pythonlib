@@ -1,18 +1,13 @@
 import logging
 import re
+import pika
 from threading import local
 from typing import Iterable, Optional, NamedTuple
+from flask import Flask
 from .common import MessageProperties
 
 _LOGGER = logging.getLogger(__name__)
 _RE_BASIC_ACK = re.compile('^basic.ack$', re.IGNORECASE)
-
-try:
-    import pika
-except ImportError as e:
-    # This module can not work without `pika` installed, but at least
-    # we can allow Sphinx to successfully import the module.
-    _LOGGER.error('Pika is not installed.', exc_info=e)
 
 
 class Message(NamedTuple):
@@ -34,13 +29,14 @@ class Message(NamedTuple):
 
 
 class DeliverySet:
-    def __init__(self, start_tag, message_count):
+    def __init__(self, start_tag: int, message_count: int):
         self.start_tag = start_tag
-        self.confirmed_array = [False for _ in range(start_tag, start_tag + message_count)]
+        self.confirmed_array = [
+            False for _ in range(start_tag, start_tag + message_count)]
         self.confirmed_count = 0
         self.min_unconfirmed_tag = start_tag
 
-    def confirm(self, delivery_tag, multiple=False):
+    def confirm(self, delivery_tag: int, multiple: bool = False) -> bool:
         confirmed_array = self.confirmed_array
         confirmed_count = 0
         start_tag = self.start_tag
@@ -62,7 +58,7 @@ class DeliverySet:
         return confirmed_count > 0
 
     @property
-    def all_confirmed(self):
+    def all_confirmed(self) -> bool:
         return self.confirmed_count == len(self.confirmed_array)
 
 
@@ -117,19 +113,24 @@ class Publisher:
 
     """
 
-    def __init__(self, app=None, *, url_config_key='SIGNALBUS_RABBITMQ_URL'):
+    def __init__(
+            self,
+            app: Optional[Flask] = None,
+            *,
+            url_config_key: str = 'SIGNALBUS_RABBITMQ_URL',
+    ):
         self._state = local()
         self._url_config_key = url_config_key
         if app is not None:
             self.init_app(app)
 
-    def init_app(self, app):
+    def init_app(self, app: Flask) -> None:
         """Bind the instance to a Flask app object.
 
         :param app: A Flask app object
         """
         self.app = app
-        self._url = app.config[self._url_config_key]
+        self._url: str = app.config[self._url_config_key]
         self._kill_connection()
 
     @property
@@ -142,8 +143,11 @@ class Publisher:
         state = self._state
         old_channel = getattr(state, 'channel', None)
         if new_channel is not old_channel:
-            if not (old_channel is None or old_channel.is_closed or old_channel.is_closing):
+            if not (old_channel is None
+                    or old_channel.is_closed
+                    or old_channel.is_closing):
                 old_channel.close()
+
             state.channel = new_channel
             state.message_number = 0
 
@@ -275,8 +279,10 @@ class Publisher:
         connection = getattr(state, 'connection', None)
         if connection is None:
             _LOGGER.warning(
-                'A message delivery confirmation will be ignored because a connection '
-                'object is not available. This should happen very rarely, or never.')
+                'A message delivery confirmation will be ignored because '
+                'a connection object is not available. This should happen '
+                'very rarely, or never.'
+            )
             return
 
         method = method_frame.method
@@ -315,7 +321,8 @@ class Publisher:
         state.returned_messages = False
         state.message_number += n
         for m in messages:
-            channel.basic_publish(m.exchange, m.routing_key, m.body, m.properties, m.mandatory)
+            channel.basic_publish(
+                m.exchange, m.routing_key, m.body, m.properties, m.mandatory)
         _LOGGER.debug('Published %i messages', len(messages))
 
     def publish_messages(
@@ -324,7 +331,7 @@ class Publisher:
             *,
             timeout: Optional[int] = None,
             allow_retry: bool = True,
-    ):
+    ) -> None:
         """Publishes messages, waiting for delivery confirmations.
 
         This method will block until a confirmation from the RabbitMQ
@@ -332,9 +339,9 @@ class Publisher:
 
         :param messages: The messages to publish
         :param timeout: Optional timeout in seconds
-
         """
-        message_list = messages if isinstance(messages, list) else list(messages)
+        message_list = (
+            messages if isinstance(messages, list) else list(messages))
         if len(message_list) == 0:
             return
 
@@ -367,9 +374,12 @@ class Publisher:
         # probably the connection has been closed by the server. In
         # this case, we should retry with a fresh connection, but only
         # once.
-        if allow_retry and connection.is_closed and not isinstance(error, ConnectionError):
+        if (allow_retry
+                and connection.is_closed
+                and not isinstance(error, ConnectionError)):
             _LOGGER.debug('Re-executing publish_messages()')
-            return self.publish_messages(message_list, timeout=timeout, allow_retry=False)
+            return self.publish_messages(
+                message_list, timeout=timeout, allow_retry=False)
 
         if error is not None:
             raise error
