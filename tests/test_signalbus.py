@@ -30,7 +30,8 @@ def test_flush_nonsignal_model(app, signalbus, NonSignal):
         signalbus.flushmany([NonSignal])
 
 
-def test_flush_signal_send_many_success(db, signalbus, send_mock, SignalSendMany):
+def test_flush_signal_send_many_success(
+        db, signalbus, send_mock, SignalSendMany):
     assert len(signalbus.get_signal_models()) == 1
     sig1 = SignalSendMany(value='b')
     sig2 = SignalSendMany(value='a')
@@ -101,7 +102,8 @@ def test_send_nonsignal_model(db, signalbus, send_mock, NonSignal):
     assert NonSignal.query.count() == 1
 
 
-def test_signal_with_props_success(db, signalbus, send_mock, Signal, SignalProperty):
+def test_signal_with_props_success(
+        db, signalbus, send_mock, Signal, SignalProperty):
     sig = Signal(name='signal', value='1')
     sig.properties = [
         SignalProperty(name='first_name', value='John'),
@@ -139,11 +141,13 @@ def test_signal_with_props_is_efficient(app, db, Signal, SignalProperty):
         ]
         db.session.add(sig)
         db.session.commit()
-        all_statements = [q.statement for q in fsa.record_queries.get_recorded_queries()]
+        all_statements = [
+            q.statement for q in fsa.record_queries.get_recorded_queries()]
         assert not any('SELECT' in s for s in all_statements)
 
 
-def test_flush_signal_with_props(db, signalbus, send_mock, Signal, SignalProperty):
+def test_flush_signal_with_props(
+        db, signalbus, send_mock, Signal, SignalProperty):
     signalbus.autoflush = False
     sig = Signal(name='signal', value='1')
     sig.properties = [

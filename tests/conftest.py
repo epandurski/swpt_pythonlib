@@ -27,7 +27,9 @@ def app(request):
     app = flask.Flask(request.module.__name__)
     app.testing = True
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'isolation_level': 'SERIALIZABLE'}
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'isolation_level': 'SERIALIZABLE',
+    }
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_RECORD_QUERIES'] = True
     app.config['SIGNALBUS_RABBITMQ_URL'] = '?heartbeat=5'
@@ -140,10 +142,12 @@ def SignalSendMany(db, send_mock):
 def SignalProperty(db, send_mock, Signal):
     class SignalProperty(db.Model):
         __tablename__ = 'test_signal_property'
-        signal_id = db.Column(db.ForeignKey(Signal.id, ondelete='CASCADE'), primary_key=True)
+        signal_id = db.Column(
+            db.ForeignKey(Signal.id, ondelete='CASCADE'), primary_key=True)
         name = db.Column(db.String(60), primary_key=True)
         value = db.Column(db.String(60))
-        signal = db.relationship(Signal, backref=db.backref("properties", passive_deletes='all'))
+        signal = db.relationship(
+            Signal, backref=db.backref("properties", passive_deletes='all'))
 
     db.create_all()
     yield SignalProperty

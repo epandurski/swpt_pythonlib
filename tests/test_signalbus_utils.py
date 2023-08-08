@@ -1,5 +1,6 @@
 import pytest
-from swpt_pythonlib.flask_signalbus.utils import retry_on_deadlock, DBSerializationError
+from swpt_pythonlib.flask_signalbus.utils import (
+    retry_on_deadlock, DBSerializationError)
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy import text
 

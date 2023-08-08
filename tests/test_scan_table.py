@@ -2,7 +2,8 @@ import logging
 import os
 from datetime import timedelta
 import pytest
-from sqlalchemy import MetaData, Table, Column, Integer, String, create_engine, text
+from sqlalchemy import (
+    MetaData, Table, Column, Integer, String, create_engine, text)
 from swpt_pythonlib.scan_table import _TableReader, TableScanner
 
 
@@ -25,7 +26,11 @@ def engine(user_table):
     user_table.metadata.drop_all(engine)
     user_table.metadata.create_all(engine)
     for i in range(10):
-        stmt = user_table.insert().values(user_id=i, user_name=f'user_{i}', email_address='user_{i}@example.com')
+        stmt = user_table.insert().values(
+            user_id=i,
+            user_name=f'user_{i}',
+            email_address='user_{i}@example.com',
+        )
         with connection.begin():
             connection.execute(stmt)
     connection.execute(text('ANALYZE user_table'))
@@ -36,7 +41,8 @@ def engine(user_table):
 def test_table_reader(user_table, engine, caplog):
     caplog.set_level(logging.INFO)
     connection = engine.connect()
-    reader = _TableReader('TestReader', connection, user_table, 40, [user_table.c.user_id, user_table.c.user_name])
+    reader = _TableReader('TestReader', connection, user_table, 40,
+                          [user_table.c.user_id, user_table.c.user_name])
     rows = []
     while len(rows) < 100:
         rows.extend(reader.read_rows(1000))

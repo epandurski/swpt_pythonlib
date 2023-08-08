@@ -17,13 +17,14 @@ def test_flush_pending_explicit(app, signalbus_with_pending_signal, caplog):
     assert "Started flushing Signal." in caplog.text
 
 
-def test_flush_pending_explicit_wrong_name(app, signalbus_with_pending_signal, caplog):
+def test_flush_pending_explicit_wrong_name(
+        app, signalbus_with_pending_signal, caplog):
     runner = app.test_cli_runner()
-    result = runner.invoke(args=['signalbus', 'flushmany', 'WrongSignalName'])
+    result = runner.invoke(args=['signalbus', 'flushmany', 'WrongName'])
     result.exit_code == 0
     assert '1 signals have been successfully processed' not in caplog.text
     assert 'WARNING' in caplog.text
-    assert 'A signal with name "WrongSignalName" does not exist.' in caplog.text
+    assert 'A signal with name "WrongName" does not exist.' in caplog.text
 
 
 def test_flush_error(app, signalbus_with_pending_error, caplog):
