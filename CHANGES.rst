@@ -2,6 +2,14 @@ Changelog
 =========
 
 
+Version 0.9.1
+-------------
+
+- Add multiproc_utils.py module
+- Minor refactoring
+- Do not write a log record, when no messages have been flushed
+
+
 Version 0.9.0
 -------------
 
