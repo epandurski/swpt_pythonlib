@@ -61,7 +61,11 @@ def flushmany(signal_names: list[str], repeat: float) -> None:
             logger.exception('Caught error while sending pending signals.')
             sys.exit(1)
 
-        logger.info('%i signals have been successfully processed.', count)
+        if count > 0:
+            logger.info('%i signals have been successfully processed.', count)
+        else:  # pragma: no cover
+            logger.debug('0 signals have been processed.')
+
         if repeat is None:
             break
         else:  # pragma: no cover

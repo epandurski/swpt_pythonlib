@@ -5,8 +5,6 @@ creating consistent and correct database APIs.
 
 from functools import wraps
 from contextlib import contextmanager
-from sqlalchemy.sql.expression import and_
-from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import IntegrityError
 from .utils import DBSerializationError, retry_on_deadlock
 
@@ -105,6 +103,11 @@ class AtomicProceduresMixin(object):
             session_info[_ATOMIC_FLAG_SESSION_INFO_KEY] = True
             try:
                 result = f(*args, **kwargs)
+
+                # Expunging all records before commit guarantees that an
+                # accidental access to some of the records used in the
+                # transaction will raise an error, instead of silently
+                # performing a database query.
                 session.expunge_all()
                 session.commit()
                 return result

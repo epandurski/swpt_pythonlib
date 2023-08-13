@@ -86,8 +86,7 @@ def test_send_signal_error(db, signalbus, send_mock, Signal):
     assert Signal.query.count() == 1
 
 
-def test_model_autoflush_false(db, signalbus, send_mock, Signal):
-    Signal.signalbus_autoflush = False
+def test_model_no_autoflush(db, signalbus, send_mock, Signal):
     db.session.add(Signal(name='signal', value='1'))
     db.session.commit()
     assert send_mock.call_count == 0
@@ -148,7 +147,6 @@ def test_signal_with_props_is_efficient(app, db, Signal, SignalProperty):
 
 def test_flush_signal_with_props(
         db, signalbus, send_mock, Signal, SignalProperty):
-    signalbus.autoflush = False
     sig = Signal(name='signal', value='1')
     sig.properties = [
         SignalProperty(name='first_name', value='John'),

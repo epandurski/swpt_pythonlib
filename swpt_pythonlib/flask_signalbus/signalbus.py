@@ -1,7 +1,7 @@
 import logging
 import flask_sqlalchemy as fsa
 import sqlalchemy.orm as sa_orm
-from typing import Iterable, Callable, Optional
+from typing import Iterable, Optional
 from flask_sqlalchemy.model import Model
 from flask import Flask
 from .utils import retry_on_deadlock
@@ -59,8 +59,16 @@ class SignalBus:
         :return: The total number of signals that have been sent
         """
 
-        return self._flush_models(
-            flush_fn=self._flushmany_signals_with_retry, models=models)
+        sent_count = 0
+        try:
+            to_flush = self.get_signal_models() if models is None else models
+            for model in to_flush:
+                _raise_error_if_not_signal_model(model)
+                sent_count += self._flushmany_signals_with_retry(model)
+        finally:
+            self.db.session.remove()
+
+        return sent_count
 
     def _init_app(self, app: Flask) -> None:
         from . import signalbus_cli
@@ -74,10 +82,7 @@ class SignalBus:
         app.cli.add_command(signalbus_cli.signalbus)
 
     def _compose_signal_query(
-            self,
-            model_cls: type[Model],
-            max_count: int,
-    ) -> sa_orm.Query:
+            self, model_cls: type[Model], max_count: int) -> sa_orm.Query:
         query = self.db.session.query(model_cls)
         query = query.limit(max_count)
         return query
@@ -103,21 +108,6 @@ class SignalBus:
 
         return n
 
-    def _flush_models(
-            self,
-            flush_fn: Callable[[type[Model]], int],
-            models: Optional[Iterable[type[Model]]],
-    ):
-        sent_count = 0
-        try:
-            to_flush = self.get_signal_models() if models is None else models
-            for model in to_flush:
-                _raise_error_if_not_signal_model(model)
-                sent_count += flush_fn(model)
-        finally:
-            self.db.session.remove()
-        return sent_count
-
     def _flushmany_signals(self, model_cls: type[Model]) -> int:
         logger = logging.getLogger(__name__)
         logger.info('Flushing %s.', model_cls.__name__)
@@ -129,7 +119,6 @@ class SignalBus:
             signals = query.all()
             sent_count += self._send_and_delete_instances(model_cls, signals)
             self.db.session.commit()
-            self.db.session.expire_all()
             if len(signals) < burst_count:
                 break
 
