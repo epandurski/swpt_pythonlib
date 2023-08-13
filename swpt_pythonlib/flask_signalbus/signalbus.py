@@ -129,7 +129,6 @@ class SignalBus:
             signals = query.all()
             sent_count += self._send_and_delete_instances(model_cls, signals)
             self.db.session.commit()
-            self.db.session.expire_all()
             if len(signals) < burst_count:
                 break
 
