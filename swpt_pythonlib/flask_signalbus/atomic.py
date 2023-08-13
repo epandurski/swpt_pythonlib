@@ -5,8 +5,6 @@ creating consistent and correct database APIs.
 
 from functools import wraps
 from contextlib import contextmanager
-from sqlalchemy.sql.expression import and_
-from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import IntegrityError
 from .utils import DBSerializationError, retry_on_deadlock
 
