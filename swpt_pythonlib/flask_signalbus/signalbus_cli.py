@@ -4,28 +4,7 @@ import logging
 import click
 from flask.cli import with_appcontext
 from flask import current_app
-from flask_sqlalchemy.model import Model
-from .signalbus import SignalBus
-
-
-def _get_models_to_flush(
-    signalbus: SignalBus,
-    model_names: list[str],
-) -> list[type[Model]]:
-    signal_names = set(model_names)
-    wrong_names = set()
-    models_to_flush = signalbus.get_signal_models()
-    if signal_names:
-        wrong_names = signal_names - {m.__name__ for m in models_to_flush}
-        models_to_flush = [
-            m for m in models_to_flush if m.__name__ in signal_names
-        ]
-
-    for name in wrong_names:
-        logger = logging.getLogger(__name__)
-        logger.warning('A signal with name "%s" does not exist.', name)
-
-    return models_to_flush
+from .signalbus import SignalBus, get_models_to_flush
 
 
 @click.group()
@@ -49,7 +28,7 @@ def flushmany(signal_names: list[str], repeat: float) -> None:
     """
 
     signalbus: SignalBus = current_app.extensions["signalbus"]
-    models_to_flush = _get_models_to_flush(signalbus, signal_names)
+    models_to_flush = get_models_to_flush(signalbus, signal_names)
     logger = logging.getLogger(__name__)
     logger.info(
         "Started flushing %s.", ", ".join(m.__name__ for m in models_to_flush)

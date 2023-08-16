@@ -6,7 +6,7 @@ from flask_sqlalchemy.model import Model
 from flask import Flask
 from .utils import retry_on_deadlock
 
-__all__ = ["SignalBus", "SignalBusMixin"]
+__all__ = ["SignalBus", "SignalBusMixin", "get_models_to_flush"]
 
 
 def _get_class_registry(base: type[Model]) -> dict[str, type]:
@@ -157,3 +157,30 @@ class SignalBusMixin:
         super().init_app(app)  # type: ignore
         self.signalbus = SignalBus(self)
         self.signalbus._init_app(app)
+
+
+def get_models_to_flush(
+    signalbus: SignalBus,
+    model_names: list[str],
+) -> list[type[Model]]:
+    """Given model names, return model classes.
+
+    Invalid model names are ignored with a warning. This function is useful
+    for implementing CLI tools.
+
+    """
+
+    signal_names = set(model_names)
+    wrong_names = set()
+    models_to_flush = signalbus.get_signal_models()
+    if signal_names:
+        wrong_names = signal_names - {m.__name__ for m in models_to_flush}
+        models_to_flush = [
+            m for m in models_to_flush if m.__name__ in signal_names
+        ]
+
+    for name in wrong_names:
+        logger = logging.getLogger(__name__)
+        logger.warning('A signal with name "%s" does not exist.', name)
+
+    return models_to_flush
