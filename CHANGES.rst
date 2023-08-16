@@ -2,6 +2,13 @@ Changelog
 =========
 
 
+Version 0.9.2
+-------------
+
+- Make `get_models_to_flush` a public function
+- Use 79-columns "black" formatting
+
+
 Version 0.9.1
 -------------
 

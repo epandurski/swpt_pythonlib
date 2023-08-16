@@ -126,6 +126,12 @@ API Reference
 .. _signal-model:
 
 
+Functions
+---------
+
+.. autofunction:: swpt_pythonlib.flask_signalbus.get_models_to_flush
+
+
 Classes
 -------
 
