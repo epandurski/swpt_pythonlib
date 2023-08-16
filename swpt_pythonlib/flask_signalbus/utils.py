@@ -5,14 +5,14 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import scoped_session
 
 __all__ = [
-    'DEADLOCK_ERROR_CODES',
-    'DBSerializationError',
-    'get_db_error_code',
-    'retry_on_deadlock',
+    "DEADLOCK_ERROR_CODES",
+    "DBSerializationError",
+    "get_db_error_code",
+    "retry_on_deadlock",
 ]
 
 
-DEADLOCK_ERROR_CODES = ['40001', '40P01']
+DEADLOCK_ERROR_CODES = ["40001", "40P01"]
 
 
 class DBSerializationError(Exception):
@@ -26,8 +26,8 @@ def get_db_error_code(exception: Exception) -> str:
     are supported.
     """
 
-    for attr in ['pgcode', 'sqlstate']:
-        error_code = getattr(exception, attr, '')
+    for attr in ["pgcode", "sqlstate"]:
+        error_code = getattr(exception, attr, "")
         if error_code:  # pragma: no cover
             break
 
@@ -35,10 +35,10 @@ def get_db_error_code(exception: Exception) -> str:
 
 
 def retry_on_deadlock(
-        session: scoped_session,
-        retries: int = 7,
-        min_wait: float = 0.1,
-        max_wait: float = 10.0,
+    session: scoped_session,
+    retries: int = 7,
+    min_wait: float = 0.1,
+    max_wait: float = 10.0,
 ) -> Callable[[Callable], Callable]:
     """Return function decorator that executes the function again in case of
     a deadlock.
@@ -64,7 +64,9 @@ def retry_on_deadlock(
 
                 session.rollback()
                 if num_failures > 1:
-                    wait_seconds = min(max_wait, min_wait * 2 ** (num_failures - 2))
+                    wait_seconds = min(
+                        max_wait, min_wait * 2 ** (num_failures - 2)
+                    )
                     time.sleep(wait_seconds)
 
         return f

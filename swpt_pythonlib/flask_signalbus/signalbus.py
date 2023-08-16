@@ -6,21 +6,21 @@ from flask_sqlalchemy.model import Model
 from flask import Flask
 from .utils import retry_on_deadlock
 
-__all__ = ['SignalBus', 'SignalBusMixin']
+__all__ = ["SignalBus", "SignalBusMixin"]
 
 
 def _get_class_registry(base: type[Model]) -> dict[str, type]:
     return (
         base.registry._class_registry
-        if hasattr(base, 'registry')
+        if hasattr(base, "registry")
         else base._decl_class_registry  # type: ignore
     )
 
 
 def _raise_error_if_not_signal_model(model_cls: type[Model]) -> None:
-    if not hasattr(model_cls, 'send_signalbus_message'):
+    if not hasattr(model_cls, "send_signalbus_message"):
         raise RuntimeError(
-            '{} can not be flushed because it does not have a'
+            "{} can not be flushed because it does not have a"
             ' "send_signalbus_message" method.'
         )
 
@@ -41,10 +41,12 @@ class SignalBus:
 
         base = self.db.Model
         return [
-            cls for cls in _get_class_registry(base).values() if (
+            cls
+            for cls in _get_class_registry(base).values()
+            if (
                 isinstance(cls, type)
                 and issubclass(cls, base)
-                and hasattr(cls, 'send_signalbus_message')
+                and hasattr(cls, "send_signalbus_message")
             )
         ]
 
@@ -73,33 +75,35 @@ class SignalBus:
     def _init_app(self, app: Flask) -> None:
         from . import signalbus_cli
 
-        if 'signalbus' in app.extensions:  # pragma: no cover
+        if "signalbus" in app.extensions:  # pragma: no cover
             raise RuntimeError(
                 "A 'SignalBus' instance has already been registered on this"
                 " Flask app. Import and use that instance instead."
             )
-        app.extensions['signalbus'] = self
+        app.extensions["signalbus"] = self
         app.cli.add_command(signalbus_cli.signalbus)
 
     def _compose_signal_query(
-            self, model_cls: type[Model], max_count: int) -> sa_orm.Query:
+        self, model_cls: type[Model], max_count: int
+    ) -> sa_orm.Query:
         query = self.db.session.query(model_cls)
         query = query.limit(max_count)
         return query
 
     def _get_signal_burst_count(self, model_cls: type[Model]) -> int:
-        burst_count = int(getattr(model_cls, 'signalbus_burst_count', 1))
+        burst_count = int(getattr(model_cls, "signalbus_burst_count", 1))
         assert burst_count > 0, '"signalbus_burst_count" must be positive'
         return burst_count
 
     def _send_and_delete_instances(
-            self, model_cls: type[Model], instances: list[Model]):
+        self, model_cls: type[Model], instances: list[Model]
+    ):
         n = len(instances)
-        if n > 1 and hasattr(model_cls, 'send_signalbus_messages'):
+        if n > 1 and hasattr(model_cls, "send_signalbus_messages"):
             model_cls.send_signalbus_messages(instances)
         else:
             for instance in instances:
-                assert hasattr(instance, 'send_signalbus_message')
+                assert hasattr(instance, "send_signalbus_message")
                 instance.send_signalbus_message()
 
         session = self.db.session
@@ -110,7 +114,7 @@ class SignalBus:
 
     def _flushmany_signals(self, model_cls: type[Model]) -> int:
         logger = logging.getLogger(__name__)
-        logger.info('Flushing %s.', model_cls.__name__)
+        logger.info("Flushing %s.", model_cls.__name__)
         sent_count = 0
         burst_count = self._get_signal_burst_count(model_cls)
         query = self._compose_signal_query(model_cls, max_count=burst_count)
@@ -142,11 +146,13 @@ class SignalBusMixin:
         db = CustomSQLAlchemy(app)
         db.signalbus.flush()
     """
+
     signalbus: SignalBus
 
     def init_app(self, app: Flask) -> None:
-        assert isinstance(self, fsa.SQLAlchemy), \
-            'SignalBusMixin must be used as mixin for a SQLAlchemy superclass.'
+        assert isinstance(
+            self, fsa.SQLAlchemy
+        ), "SignalBusMixin must be used as mixin for a SQLAlchemy superclass."
 
         super().init_app(app)  # type: ignore
         self.signalbus = SignalBus(self)

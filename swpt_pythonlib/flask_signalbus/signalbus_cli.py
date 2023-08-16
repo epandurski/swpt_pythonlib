@@ -9,8 +9,8 @@ from .signalbus import SignalBus
 
 
 def _get_models_to_flush(
-        signalbus: SignalBus,
-        model_names: list[str],
+    signalbus: SignalBus,
+    model_names: list[str],
 ) -> list[type[Model]]:
     signal_names = set(model_names)
     wrong_names = set()
@@ -18,7 +18,8 @@ def _get_models_to_flush(
     if signal_names:
         wrong_names = signal_names - {m.__name__ for m in models_to_flush}
         models_to_flush = [
-            m for m in models_to_flush if m.__name__ in signal_names]
+            m for m in models_to_flush if m.__name__ in signal_names
+        ]
 
     for name in wrong_names:
         logger = logging.getLogger(__name__)
@@ -34,8 +35,8 @@ def signalbus() -> None:
 
 @signalbus.command()
 @with_appcontext
-@click.option('-r', '--repeat', type=float, help='Flush every FLOAT seconds.')
-@click.argument('signal_names', nargs=-1)
+@click.option("-r", "--repeat", type=float, help="Flush every FLOAT seconds.")
+@click.argument("signal_names", nargs=-1)
 def flushmany(signal_names: list[str], repeat: float) -> None:
     """Send pending signals over the message bus.
 
@@ -47,24 +48,25 @@ def flushmany(signal_names: list[str], repeat: float) -> None:
     parallel, without stepping on each others' toes.
     """
 
-    signalbus: SignalBus = current_app.extensions['signalbus']
+    signalbus: SignalBus = current_app.extensions["signalbus"]
     models_to_flush = _get_models_to_flush(signalbus, signal_names)
     logger = logging.getLogger(__name__)
-    logger.info('Started flushing %s.',
-                ', '.join(m.__name__ for m in models_to_flush))
+    logger.info(
+        "Started flushing %s.", ", ".join(m.__name__ for m in models_to_flush)
+    )
 
     while True:
         started_at = time.time()
         try:
             count = signalbus.flushmany(models_to_flush)
         except Exception:
-            logger.exception('Caught error while sending pending signals.')
+            logger.exception("Caught error while sending pending signals.")
             sys.exit(1)
 
         if count > 0:
-            logger.info('%i signals have been successfully processed.', count)
+            logger.info("%i signals have been successfully processed.", count)
         else:  # pragma: no cover
-            logger.debug('0 signals have been processed.')
+            logger.debug("0 signals have been processed.")
 
         if repeat is None:
             break
@@ -77,7 +79,7 @@ def flushmany(signal_names: list[str], repeat: float) -> None:
 def signals() -> None:
     """Show all signal types."""
 
-    signalbus: SignalBus = current_app.extensions['signalbus']
+    signalbus: SignalBus = current_app.extensions["signalbus"]
     for signal_model in signalbus.get_signal_models():
         click.echo(signal_model.__name__)
 
@@ -87,7 +89,7 @@ def signals() -> None:
 def pending() -> None:
     """Show the number of pending signals by signal type."""
 
-    signalbus: SignalBus = current_app.extensions['signalbus']
+    signalbus: SignalBus = current_app.extensions["signalbus"]
     pending = []
     total_pending = 0
     for signal_model in signalbus.get_signal_models():
@@ -102,5 +104,5 @@ def pending() -> None:
         for n, signal_name in pending:
             click.echo(f'{str(n).rjust(max_chars)} of type "{signal_name}"')
 
-    click.echo(25 * '-')
-    click.echo('Total pending: {} '.format(total_pending))
+    click.echo(25 * "-")
+    click.echo("Total pending: {} ".format(total_pending))

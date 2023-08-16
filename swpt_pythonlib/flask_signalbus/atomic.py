@@ -8,10 +8,10 @@ from contextlib import contextmanager
 from sqlalchemy.exc import IntegrityError
 from .utils import DBSerializationError, retry_on_deadlock
 
-__all__ = ['AtomicProceduresMixin']
+__all__ = ["AtomicProceduresMixin"]
 
 
-_ATOMIC_FLAG_SESSION_INFO_KEY = 'flask_signalbus__atomic_flag'
+_ATOMIC_FLAG_SESSION_INFO_KEY = "flask_signalbus__atomic_flag"
 
 
 class AtomicProceduresMixin(object):
@@ -49,7 +49,6 @@ class AtomicProceduresMixin(object):
             engine_options["isolation_level"] = "REPEATABLE READ"
 
         super().__init__(*args, engine_options=engine_options, **kwargs)
-
 
     def atomic(self, func):
         """A decorator that wraps a function in an atomic block.
@@ -120,7 +119,8 @@ class AtomicProceduresMixin(object):
         return wrapper
 
     def execute_atomic(self, func):
-        """A decorator that executes a function in an atomic block (see :meth:`atomic`).
+        """A decorator that executes a function in an atomic block (see
+        :meth:`atomic`).
 
         Example::
 
@@ -136,13 +136,15 @@ class AtomicProceduresMixin(object):
         This code defines *and executes* the function ``result`` in an
         atomic block. At the end, the name ``result`` holds the value
         returned from the function.
+
         """
 
         return self.atomic(func)()
 
     @contextmanager
     def retry_on_integrity_error(self):
-        """Re-raise :class:`~sqlalchemy.exc.IntegrityError` as `DBSerializationError`.
+        """Re-raise :class:`~sqlalchemy.exc.IntegrityError` as
+        `DBSerializationError`.
 
         This is mainly useful to handle race conditions in atomic
         blocks. For example, even if prior to a database INSERT we
@@ -168,8 +170,10 @@ class AtomicProceduresMixin(object):
         """
 
         session = self.session
-        assert session.info.get(_ATOMIC_FLAG_SESSION_INFO_KEY), \
-            'Calls to "retry_on_integrity_error" must be wrapped in atomic block.'
+        assert session.info.get(_ATOMIC_FLAG_SESSION_INFO_KEY), (
+            'Calls to "retry_on_integrity_error" must be wrapped in atomic'
+            " block."
+        )
         session.flush()
         try:
             yield

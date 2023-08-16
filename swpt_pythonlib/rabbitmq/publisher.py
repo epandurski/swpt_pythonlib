@@ -7,7 +7,7 @@ from flask import Flask
 from .common import MessageProperties
 
 _LOGGER = logging.getLogger(__name__)
-_RE_BASIC_ACK = re.compile('^basic.ack$', re.IGNORECASE)
+_RE_BASIC_ACK = re.compile("^basic.ack$", re.IGNORECASE)
 
 
 class Message(NamedTuple):
@@ -32,7 +32,8 @@ class DeliverySet:
     def __init__(self, start_tag: int, message_count: int):
         self.start_tag = start_tag
         self.confirmed_array = [
-            False for _ in range(start_tag, start_tag + message_count)]
+            False for _ in range(start_tag, start_tag + message_count)
+        ]
         self.confirmed_count = 0
         self.min_unconfirmed_tag = start_tag
 
@@ -114,10 +115,10 @@ class Publisher:
     """
 
     def __init__(
-            self,
-            app: Optional[Flask] = None,
-            *,
-            url_config_key: str = 'SIGNALBUS_RABBITMQ_URL',
+        self,
+        app: Optional[Flask] = None,
+        *,
+        url_config_key: str = "SIGNALBUS_RABBITMQ_URL",
     ):
         self._state = local()
         self._url_config_key = url_config_key
@@ -136,16 +137,18 @@ class Publisher:
     @property
     def _channel(self):
         """The channel for the current thread."""
-        return getattr(self._state, 'channel', None)
+        return getattr(self._state, "channel", None)
 
     @_channel.setter
     def _channel(self, new_channel):
         state = self._state
-        old_channel = getattr(state, 'channel', None)
+        old_channel = getattr(state, "channel", None)
         if new_channel is not old_channel:
-            if not (old_channel is None
-                    or old_channel.is_closed
-                    or old_channel.is_closing):
+            if not (
+                old_channel is None
+                or old_channel.is_closed
+                or old_channel.is_closing
+            ):
                 old_channel.close()
 
             state.channel = new_channel
@@ -155,9 +158,9 @@ class Publisher:
         """This method returns the RabbitMQ connection for the current thread.
         If there are no connection, a new one will be created.
         """
-        connection = getattr(self._state, 'connection', None)
+        connection = getattr(self._state, "connection", None)
         if connection is None:
-            _LOGGER.info('Connecting to %s', self._url)
+            _LOGGER.info("Connecting to %s", self._url)
 
             # Tries to connect to RabbitMQ, returning the connection
             # handle. When the connection is established, the
@@ -177,7 +180,7 @@ class Publisher:
         away too.
         """
         self._channel = None
-        connection = getattr(self._state, 'connection', None)
+        connection = getattr(self._state, "connection", None)
         if connection is not None:
             if not (connection.is_closed or connection.is_closing):
                 connection.close()
@@ -188,8 +191,8 @@ class Publisher:
         been established. It passes the handle to the connection
         object.
         """
-        _LOGGER.info('Connection opened')
-        _LOGGER.info('Creating a new channel')
+        _LOGGER.info("Connection opened")
+        _LOGGER.info("Creating a new channel")
 
         # This will open a new channel with RabbitMQ by issuing the
         # Channel.Open RPC command. When RabbitMQ confirms the channel
@@ -202,9 +205,9 @@ class Publisher:
         be established. In this case, we will throw away the
         connection object.
         """
-        _LOGGER.error('Connection open failed: %s', err)
+        _LOGGER.error("Connection open failed: %s", err)
         troubled_connection.ioloop.stop()
-        if getattr(self._state, 'connection', None) is troubled_connection:
+        if getattr(self._state, "connection", None) is troubled_connection:
             self._kill_connection()
         self._state.error = ConnectionError(err)
 
@@ -213,9 +216,9 @@ class Publisher:
         closed unexpectedly. In this case, we will throw away the
         connection object.
         """
-        _LOGGER.info('Connection closed: %s', reason)
+        _LOGGER.info("Connection closed: %s", reason)
         closed_connection.ioloop.stop()
-        if getattr(self._state, 'connection', None) is closed_connection:
+        if getattr(self._state, "connection", None) is closed_connection:
             self._kill_connection()
 
     def _on_channel_open(self, channel):
@@ -223,7 +226,7 @@ class Publisher:
         We use the passed channel object to immediately send the
         queued messages (asynchronously, no blocking).
         """
-        _LOGGER.info('Channel opened')
+        _LOGGER.info("Channel opened")
         self._channel = channel
         channel.add_on_close_callback(self._on_channel_closed)
         channel.add_on_return_callback(self._on_return_callback)
@@ -235,7 +238,7 @@ class Publisher:
         # _on_delivery_confirmation method will be invoked passing in a
         # Basic.Ack or Basic.Nack method from RabbitMQ that will
         # indicate which messages it is confirming or rejecting.
-        _LOGGER.info('Issuing Confirm.Select RPC command')
+        _LOGGER.info("Issuing Confirm.Select RPC command")
         channel.confirm_delivery(self._on_delivery_confirmation)
 
         assert channel.is_open
@@ -249,7 +252,7 @@ class Publisher:
         will close the connection and throw away the connection
         object.
         """
-        _LOGGER.info('Channel %i was closed: %s', closed_channel, reason)
+        _LOGGER.info("Channel %i was closed: %s", closed_channel, reason)
         if self._channel is closed_channel:
             self._kill_connection()
 
@@ -276,12 +279,12 @@ class Publisher:
         is less or equal than `method_frame.method.delivery_tag`.
         """
         state = self._state
-        connection = getattr(state, 'connection', None)
+        connection = getattr(state, "connection", None)
         if connection is None:
             _LOGGER.warning(
-                'A message delivery confirmation will be ignored because '
-                'a connection object is not available. This should happen '
-                'very rarely, or never.'
+                "A message delivery confirmation will be ignored because "
+                "a connection object is not available. This should happen "
+                "very rarely, or never."
             )
             return
 
@@ -289,8 +292,12 @@ class Publisher:
         medhod_name = method.NAME
         tag = method.delivery_tag
         multiple = method.multiple
-        _LOGGER.debug('Received %s for delivery tag: %i (multiple: %s)',
-                      medhod_name, tag, multiple)
+        _LOGGER.debug(
+            "Received %s for delivery tag: %i (multiple: %s)",
+            medhod_name,
+            tag,
+            multiple,
+        )
 
         if not _RE_BASIC_ACK.match(medhod_name):
             state.received_nack = True
@@ -299,9 +306,9 @@ class Publisher:
         pending.confirm(tag, multiple)
         if pending.all_confirmed:
             if state.received_nack:
-                state.error = DeliveryError('received nack')
+                state.error = DeliveryError("received nack")
             elif state.returned_messages:
-                state.error = DeliveryError('returned messages')
+                state.error = DeliveryError("returned messages")
             else:
                 state.error = None
             connection.ioloop.stop()
@@ -322,15 +329,16 @@ class Publisher:
         state.message_number += n
         for m in messages:
             channel.basic_publish(
-                m.exchange, m.routing_key, m.body, m.properties, m.mandatory)
-        _LOGGER.debug('Published %i messages', len(messages))
+                m.exchange, m.routing_key, m.body, m.properties, m.mandatory
+            )
+        _LOGGER.debug("Published %i messages", len(messages))
 
     def publish_messages(
-            self,
-            messages: Iterable[Message],
-            *,
-            timeout: Optional[int] = None,
-            allow_retry: bool = True,
+        self,
+        messages: Iterable[Message],
+        *,
+        timeout: Optional[int] = None,
+        allow_retry: bool = True,
     ) -> None:
         """Publishes messages, waiting for delivery confirmations.
 
@@ -341,7 +349,8 @@ class Publisher:
         :param timeout: Optional timeout in seconds
         """
         message_list = (
-            messages if isinstance(messages, list) else list(messages))
+            messages if isinstance(messages, list) else list(messages)
+        )
         if len(message_list) == 0:
             return
 
@@ -368,18 +377,21 @@ class Publisher:
                 connection.ioloop.start()
             raise
 
-        error = getattr(state, 'error', None)
+        error = getattr(state, "error", None)
 
         # If at the end of the ioloop the connection is closed, most
         # probably the connection has been closed by the server. In
         # this case, we should retry with a fresh connection, but only
         # once.
-        if (allow_retry
-                and connection.is_closed
-                and not isinstance(error, ConnectionError)):
-            _LOGGER.debug('Re-executing publish_messages()')
+        if (
+            allow_retry
+            and connection.is_closed
+            and not isinstance(error, ConnectionError)
+        ):
+            _LOGGER.debug("Re-executing publish_messages()")
             return self.publish_messages(
-                message_list, timeout=timeout, allow_retry=False)
+                message_list, timeout=timeout, allow_retry=False
+            )
 
         if error is not None:
             raise error

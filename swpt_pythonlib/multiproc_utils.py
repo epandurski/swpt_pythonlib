@@ -36,8 +36,16 @@ class ThreadPoolProcessor:
     pause of at least `wait_seconds` will be made between the
     sequential calls of `get_args_collection`.
     """
-    def __init__(self, threads, *,
-                 get_args_collection, process_func, wait_seconds, max_count):
+
+    def __init__(
+        self,
+        threads,
+        *,
+        get_args_collection,
+        process_func,
+        wait_seconds,
+        max_count
+    ):
         self.logger = logging.getLogger(__name__)
         self.threads = threads
         self.get_args_collection = get_args_collection
@@ -64,7 +72,7 @@ class ThreadPoolProcessor:
         try:
             raise e
         except Exception:
-            self.logger.exception('Caught error while processing objects.')
+            self.logger.exception("Caught error while processing objects.")
 
         self.error_has_occurred = True
 
@@ -78,8 +86,9 @@ class ThreadPoolProcessor:
         pool = ThreadPool(self.threads, initializer=push_app_context)
         iteration_counter = 0
 
-        while not (self.error_has_occurred
-                   or (quit_early and iteration_counter > 0)):
+        while not (
+            self.error_has_occurred or (quit_early and iteration_counter > 0)
+        ):
             iteration_counter += 1
             started_at = time.time()
             args_collection = self.get_args_collection()
@@ -89,16 +98,20 @@ class ThreadPoolProcessor:
                 self.pending += n
 
             for args in args_collection:
-                pool.apply_async(self.process_func, args,
-                                 callback=self._mark_done,
-                                 error_callback=self._log_error)
+                pool.apply_async(
+                    self.process_func,
+                    args,
+                    callback=self._mark_done,
+                    error_callback=self._log_error,
+                )
 
             with self.all_done:
                 self._wait_until_all_done()
 
             if n < self.max_count:
                 time.sleep(
-                    max(0.0, self.wait_seconds + started_at - time.time()))
+                    max(0.0, self.wait_seconds + started_at - time.time())
+                )
 
         pool.close()
         pool.join()
@@ -130,8 +143,10 @@ def spawn_worker_processes(processes: int, target, **kwargs):
             target(**kwargs)
         except Exception:
             logger = logging.getLogger(__name__)
-            logger.exception("Uncaught exception occured in worker with PID %i.",
-                             os.getpid())
+            logger.exception(
+                "Uncaught exception occured in worker with PID %i.",
+                os.getpid(),
+            )
 
     def terminate_worker_processes():
         nonlocal worker_processes_have_been_terminated
@@ -141,8 +156,9 @@ def spawn_worker_processes(processes: int, target, **kwargs):
             worker_processes_have_been_terminated = True
 
     def sighandler(signum, frame):  # pragma: no cover
-        logger.info('Received "%s" signal. Shutting down...',
-                    signal.strsignal(signum))
+        logger.info(
+            'Received "%s" signal. Shutting down...', signal.strsignal(signum)
+        )
         terminate_worker_processes()
 
     # To prevent the main process from exiting due to signals after
@@ -152,7 +168,7 @@ def spawn_worker_processes(processes: int, target, **kwargs):
     try_block_signals()
 
     logger = logging.getLogger(__name__)
-    logger.info('Spawning %i worker processes...', processes)
+    logger.info("Spawning %i worker processes...", processes)
 
     for _ in range(processes):
         p = multiprocessing.Process(target=worker, kwargs=kwargs)
@@ -171,10 +187,13 @@ def spawn_worker_processes(processes: int, target, **kwargs):
     while any(p.exitcode is None for p in worker_processes):
         for p in worker_processes:
             p.join(timeout=1)
-            if (p.exitcode is not None
-                    and not worker_processes_have_been_terminated):
+            if (
+                p.exitcode is not None
+                and not worker_processes_have_been_terminated
+            ):
                 logger.warning(
                     "Worker with PID %r exited unexpectedly. Shutting down...",
-                    p.pid)
+                    p.pid,
+                )
                 terminate_worker_processes()
                 break

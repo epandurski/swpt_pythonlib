@@ -31,13 +31,14 @@ class _TableReader:
         " pg_relation_size('{tablename}') / current_setting('block_size')::int"
     )
 
-    def __init__(self,
-                 reader_id: str,
-                 connection: Connection,
-                 table: Table,
-                 blocks_per_query: int,
-                 columns: Optional[List[ColumnElement]] = None):
-
+    def __init__(
+        self,
+        reader_id: str,
+        connection: Connection,
+        table: Table,
+        blocks_per_query: int,
+        columns: Optional[List[ColumnElement]] = None,
+    ):
         assert isinstance(connection, Connection)
         assert blocks_per_query >= 1
         self.reader_id = reader_id
@@ -50,8 +51,11 @@ class _TableReader:
         self.queue: deque = deque()
 
     def _ensure_valid_current_block(self) -> None:
-        result = self.connection.execute(sqlalchemy.text(
-            self.LAST_BLOCK_QUERY.format(tablename=self.table.name)))
+        result = self.connection.execute(
+            sqlalchemy.text(
+                self.LAST_BLOCK_QUERY.format(tablename=self.table.name)
+            )
+        )
         last_block = result.scalar()
         assert last_block is not None
         total_blocks = last_block + 1
@@ -68,14 +72,16 @@ class _TableReader:
             first_block = self.current_block
             self.current_block += self.blocks_per_query
             last_block = self.current_block - 1
-            tid_range_clause = sqlalchemy.text(_TID_RANGE_CLAUSE.format(
-                first_block=first_block,
-                last_block=last_block,
-            ))
+            tid_range_clause = sqlalchemy.text(
+                _TID_RANGE_CLAUSE.format(
+                    first_block=first_block,
+                    last_block=last_block,
+                )
+            )
             tid_range_query = self.table_query.where(tid_range_clause)
-            return self.connection.execute(tid_range_query)\
-                                  .mappings()\
-                                  .fetchall()
+            return (
+                self.connection.execute(tid_range_query).mappings().fetchall()
+            )
 
     def read_rows(self, count: int) -> list[RowMapping]:
         """Return a list of at most `count` rows."""
@@ -87,7 +93,8 @@ class _TableReader:
             except self.EndOfTableError:
                 self.current_block = 0
                 self.logger.info(
-                    '%s reached the end of the table', self.reader_id)
+                    "%s reached the end of the table", self.reader_id
+                )
                 break
 
         for _ in range(count):
@@ -187,9 +194,9 @@ class TableScanner:
     """
 
     def __create_rhythm(
-            self,
-            total_rows: int,
-            completion_goal: timedelta,
+        self,
+        total_rows: int,
+        completion_goal: timedelta,
     ) -> Tuple[_Rhythm, int]:
         assert total_rows >= 0
         assert self.target_beat_duration > 0
@@ -200,10 +207,10 @@ class TableScanner:
         return _Rhythm(completion_goal, number_of_beats), rows_per_beat
 
     def run(
-            self,
-            engine: Connectable,
-            completion_goal: timedelta,
-            quit_early: bool = False,
+        self,
+        engine: Connectable,
+        completion_goal: timedelta,
+        quit_early: bool = False,
     ) -> None:
         """Scan table continuously.
 
@@ -227,27 +234,36 @@ class TableScanner:
         elif isinstance(engine, Connection):
             connection = engine
         else:
-            raise ValueError('not a connectable')
+            raise ValueError("not a connectable")
 
-        assert self.table is not None, \
-            '"table" must be defined in the subclass.'
-        reader_id = '<{} at 0x{:x}>'.format(type(self).__name__, id(self))
-        reader = _TableReader(reader_id, connection, self.table,
-                              self.blocks_per_query, self.columns)
+        assert (
+            self.table is not None
+        ), '"table" must be defined in the subclass.'
+        reader_id = "<{} at 0x{:x}>".format(type(self).__name__, id(self))
+        reader = _TableReader(
+            reader_id,
+            connection,
+            self.table,
+            self.blocks_per_query,
+            self.columns,
+        )
         n = 0
         while True:
             n += 1
             tablename = self.table.name
             with connection.begin():
-                total_rows = connection.execute(sqlalchemy.text(
-                    self.TOTAL_ROWS_QUERY.format(tablename=tablename))
+                total_rows = connection.execute(
+                    sqlalchemy.text(
+                        self.TOTAL_ROWS_QUERY.format(tablename=tablename)
+                    )
                 ).scalar()
 
             if total_rows is None:
                 raise RuntimeError(f'The table "{tablename}" does not exist.')
 
             rhythm, rows_per_beat = self.__create_rhythm(
-                total_rows, completion_goal)
+                total_rows, completion_goal
+            )
 
             while not rhythm.has_ended:
                 rows = reader.read_rows(count=rows_per_beat)
