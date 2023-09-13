@@ -68,7 +68,7 @@ def retry_on_deadlock(
                     wait_seconds = min(
                         max_wait, min_wait * 2 ** (num_failures - 2)
                     )
-                    wait_seconds *= (0.75 + 0.25 * random.random())
+                    wait_seconds *= random.random()
                     time.sleep(wait_seconds)
 
         return f
