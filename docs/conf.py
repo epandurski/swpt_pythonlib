@@ -24,9 +24,9 @@ copyright = '2019, Evgeni Pandurski'
 author = 'Evgeni Pandurski'
 
 # The short X.Y version
-version = '0.8.6'
+version = '0.9.2'
 # The full version, including alpha/beta/rc tags
-release = '0.8.6'
+release = '0.9.2'
 
 
 # -- General configuration ---------------------------------------------------

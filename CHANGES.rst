@@ -2,6 +2,37 @@ Changelog
 =========
 
 
+Version 0.9.2
+-------------
+
+- Make `get_models_to_flush` a public function
+- Use 79-columns "black" formatting
+
+
+Version 0.9.1
+-------------
+
+- Add multiproc_utils.py module
+- Minor refactoring
+- Do not write a log record, when no messages have been flushed
+
+
+Version 0.9.0
+-------------
+
+- Add type annotations
+- Support SQLAlchemy 2 and Flask-SQLAlchemy 3
+- Throw away unused code in the `flask_signalbus` module
+- Follow PEP8 more closely
+
+
+Version 0.8.7
+-------------
+
+- Improve flush wait logic
+- Improve doc-strings
+
+
 Version 0.8.6
 -------------
 

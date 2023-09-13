@@ -62,9 +62,12 @@ def test_werkzeug_converter():
     # Test URL match:
     assert urls.match('/debtors/0') == ('debtors', {'debtorId': 0})
     assert urls.match('/debtors/1') == ('debtors', {'debtorId': 1})
-    assert urls.match('/debtors/9223372036854775807') == ('debtors', {'debtorId': 9223372036854775807})
-    assert urls.match('/debtors/9223372036854775808') == ('debtors', {'debtorId': -9223372036854775808})
-    assert urls.match('/debtors/18446744073709551615') == ('debtors', {'debtorId': -1})
+    assert urls.match('/debtors/9223372036854775807') == (
+        'debtors', {'debtorId': 9223372036854775807})
+    assert urls.match('/debtors/9223372036854775808') == (
+        'debtors', {'debtorId': -9223372036854775808})
+    assert urls.match('/debtors/18446744073709551615') == (
+        'debtors', {'debtorId': -1})
     with pytest.raises(NotFound):
         assert urls.match('/debtors/01')
     with pytest.raises(NotFound):
@@ -77,8 +80,10 @@ def test_werkzeug_converter():
     # Test URL build:
     assert urls.build('debtors', {'debtorId': 0}) == '/debtors/0'
     assert urls.build('debtors', {'debtorId': 1}) == '/debtors/1'
-    assert urls.build('debtors', {'debtorId': 9223372036854775807}) == '/debtors/9223372036854775807'
-    assert urls.build('debtors', {'debtorId': -9223372036854775808}) == '/debtors/9223372036854775808'
+    assert urls.build('debtors', {'debtorId': 9223372036854775807}) == \
+        '/debtors/9223372036854775807'
+    assert urls.build('debtors', {'debtorId': -9223372036854775808}) == \
+        '/debtors/9223372036854775808'
     with pytest.raises(ValueError):
         assert urls.build('debtors', {'debtorId': 9223372036854775808})
     with pytest.raises(ValueError):
@@ -129,9 +134,12 @@ def test_seqnum_class():
 
 
 def test_calc_bin_routing_key():
-    assert c.calc_bin_routing_key(123) == '1.1.1.1.1.1.0.0.0.0.0.1.0.0.0.0.0.1.1.0.0.0.1.1'
-    assert c.calc_bin_routing_key(-123) == '1.1.0.0.0.0.1.1.1.1.1.1.1.1.1.0.1.0.1.0.1.1.1.1'
-    assert c.calc_bin_routing_key(123, 456) == '0.0.0.0.1.0.0.0.0.1.0.0.0.1.0.0.0.0.1.1.0.1.0.0'
+    assert c.calc_bin_routing_key(123) == \
+        '1.1.1.1.1.1.0.0.0.0.0.1.0.0.0.0.0.1.1.0.0.0.1.1'
+    assert c.calc_bin_routing_key(-123) == \
+        '1.1.0.0.0.0.1.1.1.1.1.1.1.1.1.0.1.0.1.0.1.1.1.1'
+    assert c.calc_bin_routing_key(123, 456) == \
+        '0.0.0.0.1.0.0.0.0.1.0.0.0.1.0.0.0.0.1.1.0.1.0.0'
 
     with pytest.raises(OverflowError):
         c.calc_bin_routing_key(99999999999999999999999999999999999)

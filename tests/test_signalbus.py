@@ -1,6 +1,5 @@
 import pytest
 import flask_sqlalchemy as fsa
-from swpt_pythonlib.flask_signalbus import SignalBus
 from mock import call
 from .conftest import SignalBusAlchemy
 
@@ -20,40 +19,19 @@ def test_create_signalbus_alchemy_init_app(app):
     assert len(db.signalbus.get_signal_models()) == 0
 
 
-def test_create_signalbus_directly(app):
-    assert 'signalbus' not in app.extensions
-    db = fsa.SQLAlchemy(app)
-    signalbus = SignalBus(db)
-    assert 'signalbus' in app.extensions
-    assert not hasattr(db, 'signalbus')
-    assert len(signalbus.get_signal_models()) == 0
-
-
-def test_create_two_signalbuses_directly(app):
-    db = fsa.SQLAlchemy(app)
-    SignalBus(db)
-    with pytest.raises(RuntimeError):
-        SignalBus(db)
-
-
-def test_create_signalbus_directly_no_app():
-    db = fsa.SQLAlchemy()
-    with pytest.raises(RuntimeError):
-        SignalBus(db)
-
-
 def test_flush_signal_model(app, signalbus, Signal):
     assert len(signalbus.get_signal_models()) == 1
-    signalbus.flush([Signal], wait=0.0)
+    signalbus.flushmany([Signal])
 
 
 def test_flush_nonsignal_model(app, signalbus, NonSignal):
     assert len(signalbus.get_signal_models()) == 0
     with pytest.raises(RuntimeError):
-        signalbus.flush([NonSignal], wait=0.0)
+        signalbus.flushmany([NonSignal])
 
 
-def test_flush_signal_send_many_success(db, signalbus, send_mock, SignalSendMany):
+def test_flush_signal_send_many_success(
+        db, signalbus, send_mock, SignalSendMany):
     assert len(signalbus.get_signal_models()) == 1
     sig1 = SignalSendMany(value='b')
     sig2 = SignalSendMany(value='a')
@@ -63,15 +41,16 @@ def test_flush_signal_send_many_success(db, signalbus, send_mock, SignalSendMany
     sig1_id = sig1.id
     sig2_id = sig2.id
     db.session.commit()
-    sent_count = signalbus.flushordered([SignalSendMany])
+    sent_count = signalbus.flushmany([SignalSendMany])
     assert sent_count == 2
     assert send_mock.call_count == 2
-    assert send_mock.call_args_list == [call(sig2_id), call(sig1_id)]
+    assert call(sig1_id) in send_mock.call_args_list
+    assert call(sig2_id) in send_mock.call_args_list
 
 
 def test_flush_all_signal_models(app, signalbus, Signal, NonSignal):
     assert len(signalbus.get_signal_models()) == 1
-    signalbus.flush(wait=0.0)
+    signalbus.flushmany()
 
 
 def test_flushmany_signal_model(app, signalbus_with_pending_signal):
@@ -85,6 +64,7 @@ def test_send_signal_success(db, signalbus, send_mock, Signal):
     sig_id = sig.id
     send_mock.assert_not_called()
     db.session.commit()
+    signalbus.flushmany()
     send_mock.assert_called_once_with(
         sig_id,
         'signal',
@@ -99,32 +79,14 @@ def test_send_signal_error(db, signalbus, send_mock, Signal):
     sig = Signal(name='error', value='1')
     db.session.add(sig)
     db.session.commit()
-    assert send_mock.call_count == 1
-    with pytest.raises(ValueError):
-        signalbus.flush(wait=0.0)
-    assert send_mock.call_count == 2
-    assert Signal.query.count() == 1
-
-
-def test_autoflush_false(db, signalbus, send_mock, Signal):
-    db.session.add(Signal(name='signal', value='1'))
-    signalbus.autoflush = False
-    db.session.commit()
     assert send_mock.call_count == 0
-    assert Signal.query.count() == 1
-    signalbus.flush(wait=0.0)
+    with pytest.raises(ValueError):
+        signalbus.flushmany()
     assert send_mock.call_count == 1
-    assert Signal.query.count() == 0
-
-    db.session.add(Signal(name='signal', value='2'))
-    signalbus.autoflush = True
-    db.session.commit()
-    assert send_mock.call_count == 2
-    assert Signal.query.count() == 0
+    assert Signal.query.count() == 1
 
 
-def test_model_autoflush_false(db, signalbus, send_mock, Signal):
-    Signal.signalbus_autoflush = False
+def test_model_no_autoflush(db, signalbus, send_mock, Signal):
     db.session.add(Signal(name='signal', value='1'))
     db.session.commit()
     assert send_mock.call_count == 0
@@ -139,7 +101,8 @@ def test_send_nonsignal_model(db, signalbus, send_mock, NonSignal):
     assert NonSignal.query.count() == 1
 
 
-def test_signal_with_props_success(db, send_mock, Signal, SignalProperty):
+def test_signal_with_props_success(
+        db, signalbus, send_mock, Signal, SignalProperty):
     sig = Signal(name='signal', value='1')
     sig.properties = [
         SignalProperty(name='first_name', value='John'),
@@ -152,6 +115,7 @@ def test_signal_with_props_success(db, send_mock, Signal, SignalProperty):
     sig_id = sig.id
     send_mock.assert_not_called()
     db.session.commit()
+    signalbus.flushmany()
     send_mock.assert_called_once()
     args, kwargs = send_mock.call_args
     assert kwargs == {}
@@ -176,12 +140,13 @@ def test_signal_with_props_is_efficient(app, db, Signal, SignalProperty):
         ]
         db.session.add(sig)
         db.session.commit()
-        all_statements = [q.statement for q in fsa.get_debug_queries()]
+        all_statements = [
+            q.statement for q in fsa.record_queries.get_recorded_queries()]
         assert not any('SELECT' in s for s in all_statements)
 
 
-def test_flush_signal_with_props(db, signalbus, send_mock, Signal, SignalProperty):
-    signalbus.autoflush = False
+def test_flush_signal_with_props(
+        db, signalbus, send_mock, Signal, SignalProperty):
     sig = Signal(name='signal', value='1')
     sig.properties = [
         SignalProperty(name='first_name', value='John'),
@@ -190,7 +155,7 @@ def test_flush_signal_with_props(db, signalbus, send_mock, Signal, SignalPropert
     db.session.add(sig)
     db.session.commit()
     send_mock.assert_not_called()
-    signalbus.flush(wait=0.0)
+    signalbus.flushmany()
     send_mock.assert_called_once()
     props = send_mock.call_args[0][3]
     assert type(props) is dict

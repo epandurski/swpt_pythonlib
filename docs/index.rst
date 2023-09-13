@@ -35,6 +35,7 @@ You can install Swpt-Pythonlib with :command:`pip`::
    :caption: Contents:
 
    utils
+   multiproc_utils
    scan_table
    swpt_uris
    rabbitmq

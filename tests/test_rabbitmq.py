@@ -76,7 +76,9 @@ def test_publisher(publisher, message):
 
 
 def test_consumer_creation(app):
-    consumer = rabbitmq.Consumer(app, url='url1', queue='q1', threads=2, prefetch_size=10000, prefetch_count=5)
+    consumer = rabbitmq.Consumer(
+        app, url='url1', queue='q1', threads=2,
+        prefetch_size=10000, prefetch_count=5)
     assert consumer.url == 'url1'
     assert consumer.queue == 'q1'
     assert consumer.threads == 2

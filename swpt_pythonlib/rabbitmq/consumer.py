@@ -2,7 +2,10 @@ import logging
 import threading
 import queue
 import pika
+import pika.exceptions
+from typing import Optional, Any
 from functools import partial
+from flask import Flask
 from .common import MessageProperties
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,11 +20,11 @@ class _WorkerThread(threading.Thread):
         self.is_running = False
 
     def stop(self):
-        _LOGGER.info('Stopping worker thread %s', self.name)
+        _LOGGER.info("Stopping worker thread %s", self.name)
         self.is_running = False
 
     def run(self):
-        _LOGGER.info('Starting worker thread %s', self.name)
+        _LOGGER.info("Starting worker thread %s", self.name)
         self.is_running = True
         app = self.consumer.app
         work_queue = self.consumer._work_queue
@@ -37,7 +40,7 @@ class _WorkerThread(threading.Thread):
     def _process_message(self, channel, method, properties, body):
         delivery_tag = method.delivery_tag
         try:
-            _LOGGER.debug('Processing message %i', delivery_tag)
+            _LOGGER.debug("Processing message %i", delivery_tag)
             ok = self.process_message(body, properties)
         except Exception as e:
             self.consumer._on_error(self.name, e)
@@ -45,18 +48,26 @@ class _WorkerThread(threading.Thread):
             return
 
         if ok:
-            _LOGGER.debug('Acknowledging message %i', delivery_tag)
-            self.add_callback(partial(channel.basic_ack, delivery_tag=delivery_tag))
+            _LOGGER.debug("Acknowledging message %i", delivery_tag)
+            self.add_callback(
+                partial(channel.basic_ack, delivery_tag=delivery_tag)
+            )
         else:
-            _LOGGER.debug('Rejecting message %i', delivery_tag)
-            self.add_callback(partial(channel.basic_reject, delivery_tag=delivery_tag, requeue=False))
+            _LOGGER.debug("Rejecting message %i", delivery_tag)
+            self.add_callback(
+                partial(
+                    channel.basic_reject,
+                    delivery_tag=delivery_tag,
+                    requeue=False,
+                )
+            )
 
 
 class TerminatedConsumtion(Exception):
     """The consumption has been terminated."""
 
 
-class Consumer():
+class Consumer:
     """A RabbitMQ message consumer
 
     :param app: Optional Flask app object. If not provided `init_app`
@@ -113,22 +124,30 @@ class Consumer():
                 return True  # Successfully processed
     """
 
-    def __init__(self, app=None, *,
-                 config_prefix='SIGNALBUS_RABBITMQ',
-                 url=None, queue=None, threads=None, prefetch_size=None, prefetch_count=None):
-
+    def __init__(
+        self,
+        app: Optional[Flask] = None,
+        *,
+        config_prefix: str = "SIGNALBUS_RABBITMQ",
+        url: Optional[str] = None,
+        queue: Optional[str] = None,
+        threads: Optional[int] = None,
+        prefetch_size: Optional[int] = None,
+        prefetch_count: Optional[int] = None,
+    ):
         self.config_prefix = config_prefix
         self.url = url
         self.queue = queue
         self.threads = threads
         self.prefetch_size = prefetch_size
         self.prefetch_count = prefetch_count
-        self._work_queue = None
-        self._connection = None
+        self._stopped = True
+        self._work_queue: Optional[queue.Queue] = None
+        self._connection: Optional[pika.BlockingConnection] = None
         if app is not None:
             self.init_app(app)
 
-    def init_app(self, app):
+    def init_app(self, app: Flask):
         """Bind the instance to a Flask app object.
 
         :param app: A Flask app object
@@ -138,22 +157,19 @@ class Consumer():
         self.app = app
 
         if self.url is None:
-            self.url = config[f'{prefix}_URL']
+            self.url = config[f"{prefix}_URL"]
         if self.queue is None:
-            self.queue = config[f'{prefix}_QUEUE']
+            self.queue = config[f"{prefix}_QUEUE"]
         if self.threads is None:
-            self.threads = config.get(f'{prefix}_THREADS', 1)
+            self.threads = config.get(f"{prefix}_THREADS", 1)
         if self.prefetch_size is None:
-            self.prefetch_size = config.get(f'{prefix}_PREFETCH_SIZE', 0)
+            self.prefetch_size = config.get(f"{prefix}_PREFETCH_SIZE", 0)
         if self.prefetch_count is None:
-            self.prefetch_count = config.get(f'{prefix}_PREFETCH_COUNT', 1)
+            self.prefetch_count = config.get(f"{prefix}_PREFETCH_COUNT", 1)
 
-        assert self.threads >= 1
-        assert self.prefetch_size >= 0
-        assert self.prefetch_count >= 0
         self._purge()
 
-    def start(self):
+    def start(self) -> None:
         """Opens a RabbitMQ connection and starts processing messages until
         one of the following things happen:
 
@@ -169,11 +185,24 @@ class Consumer():
         `pika.exceptions.AMQPError` when, for some reason, a proper
         RabbitMQ connection can not be established.
         """
+        assert isinstance(self.url, str)
+        assert isinstance(self.queue, str)
+        assert isinstance(self.threads, int)
+        assert isinstance(self.prefetch_size, int)
+        assert isinstance(self.prefetch_count, int)
+        assert self.threads >= 1
+        assert self.prefetch_size >= 0
+        assert self.prefetch_count >= 0
 
-        _LOGGER.info('Consumer started')
+        _LOGGER.info("Consumer started")
         self._stopped = False
-        self._work_queue = queue.Queue(max(self.prefetch_count // 3, self.threads))
-        self._connection = pika.BlockingConnection(pika.URLParameters(self.url))
+        self._work_queue = queue.Queue(
+            max(self.prefetch_count // 3, self.threads)
+        )
+        self._connection = pika.BlockingConnection(
+            pika.URLParameters(self.url)
+        )
+
         channel = self._connection.channel()
         channel.basic_qos(self.prefetch_size, self.prefetch_count)
         workers = [_WorkerThread(self) for _ in range(self.threads)]
@@ -181,7 +210,9 @@ class Consumer():
             worker.start()
 
         try:
-            for method, properties, body in channel.consume(self.queue, inactivity_timeout=1.0):
+            for method, properties, body in channel.consume(
+                self.queue, inactivity_timeout=1.0
+            ):  # type: ignore
                 if method is not None:
                     self._work_queue.put((channel, method, properties, body))
                 if self._stopped:
@@ -199,7 +230,9 @@ class Consumer():
         self._purge()
         raise TerminatedConsumtion()
 
-    def process_message(self, body: bytes, properties: MessageProperties) -> bool:
+    def process_message(
+        self, body: bytes, properties: MessageProperties
+    ) -> bool:
         """This method must be implemented by the sub-classes.
 
         :param body: message body
@@ -214,7 +247,7 @@ class Consumer():
 
         raise NotImplementedError
 
-    def stop(self, signum=None, frame=None):
+    def stop(self, signum: Any = None, frame: Any = None) -> None:
         """Orders the consumer to stop.
 
         This is useful for properly handling process termination. For
@@ -228,7 +261,7 @@ class Consumer():
             signal.signal(signal.SIGTERM, consumer.stop)
             consumer.start()
         """
-        _LOGGER.info('Consumer stopped')
+        _LOGGER.info("Consumer stopped")
         self._stopped = True
 
     def _on_error(self, thread_name, error):
@@ -238,7 +271,7 @@ class Consumer():
     def _purge(self):
         self.stop()
         self._work_queue = None
-
         if self._connection is not None and self._connection.is_open:
             self._connection.close()
+
         self._connection = None

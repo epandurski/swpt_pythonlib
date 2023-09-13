@@ -1,6 +1,8 @@
 import pytest
-from swpt_pythonlib.flask_signalbus.utils import retry_on_deadlock, DBSerializationError
+from swpt_pythonlib.flask_signalbus.utils import (
+    retry_on_deadlock, DBSerializationError)
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy import text
 
 
 def test_retry_on_deadlock(db):
@@ -15,7 +17,7 @@ def test_retry_on_deadlock(db):
     @retry
     def g():
         executions.append(1)
-        db.session.execute('xxx')
+        db.session.execute(text('xxx'))
 
     with pytest.raises(DBSerializationError):
         f()
