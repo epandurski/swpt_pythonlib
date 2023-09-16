@@ -37,7 +37,7 @@ def get_db_error_code(exception: Exception) -> str:
 
 def retry_on_deadlock(
     session: scoped_session,
-    retries: int = 7,
+    retries: int = 8,
     min_wait: float = 0.1,
     max_wait: float = 10.0,
 ) -> Callable[[Callable], Callable]:
