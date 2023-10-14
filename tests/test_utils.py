@@ -100,7 +100,7 @@ def test_date_to_int24():
 
 def test_is_later_event():
     t1 = datetime(2000, 1, 1, 0, 0, 0)
-    t2 = datetime(2000, 1, 1, 0, 0, 1)
+    t2 = datetime(2000, 1, 1, 0, 0, 2)
     assert c.is_later_event((t2, 0), (t1, 0))
     assert not c.is_later_event((t1, 0), (t2, 0))
     assert not c.is_later_event((t1, 0), (t1, 0))

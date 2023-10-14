@@ -15,8 +15,8 @@ _MAX_INT64 = (1 << 63) - 1
 _MAX_UINT64 = (1 << 64) - 1
 _I64_SPAN = _MAX_UINT64 + 1
 _DATE_1970_01_01 = date(1970, 1, 1)
-_TD_PLUS_SECOND = timedelta(seconds=1)
-_TD_MINUS_SECOND = timedelta(seconds=-1)
+_TD_PLUS_2SECONDS = timedelta(seconds=2)
+_TD_MINUS_2SECONDS = timedelta(seconds=-2)
 _RE_ROUTING_KEY = re.compile(r"^((?:[01]\.){0,20})\#$")
 
 
@@ -221,9 +221,9 @@ def is_later_event(
     if other_ts is None:
         return True
     advance = ts - other_ts
-    if advance >= _TD_PLUS_SECOND:
+    if advance >= _TD_PLUS_2SECONDS:
         return True
-    if advance <= _TD_MINUS_SECOND:
+    if advance <= _TD_MINUS_2SECONDS:
         return False
     return (
         other_seqnum is None
