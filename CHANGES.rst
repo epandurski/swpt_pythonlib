@@ -5,7 +5,7 @@ Changelog
 Version 0.9.3
 -------------
 
-- Change ``is_later_event()` time interval to 2 seconds (from 1)
+- Change `is_later_event()` time interval to 2 seconds (from 1)
 - Optimize the DB serialization failure retry logic
 
 
