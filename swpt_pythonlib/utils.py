@@ -104,17 +104,18 @@ class Seqnum:
 class ApproxTs:
     """A timestamp that ignores differences of few seconds when comparing.
 
-    Example:
-    >>> from datetime import datetime, timedelta
-    >>> t = datetime.utcnow()
-    >>> ApproxTs(t) == ApproxTs(t)
-    True
-    >>> ApproxTs(t) == ApproxTs(t + timedelta(seconds=1))
-    True
-    >>> ApproxTs(t) == ApproxTs(t + timedelta(seconds=1000))
-    False
-    >>> ApproxTs(t) < ApproxTs(t + timedelta(seconds=1000))
-    True
+    Example::
+
+      >>> from datetime import datetime, timedelta
+      >>> t = datetime.utcnow()
+      >>> ApproxTs(t) == ApproxTs(t)
+      True
+      >>> ApproxTs(t) == ApproxTs(t + timedelta(seconds=1))
+      True
+      >>> ApproxTs(t) == ApproxTs(t + timedelta(seconds=1000))
+      False
+      >>> ApproxTs(t) < ApproxTs(t + timedelta(seconds=1000))
+      True
     """
 
     def __init__(self, value: datetime):
