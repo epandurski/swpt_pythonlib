@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.9.4
+-------------
+
+- Added `ApproxTs` class
+
+
 Version 0.9.3
 -------------
 
