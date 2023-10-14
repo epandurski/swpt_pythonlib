@@ -1,6 +1,6 @@
 import os
 import pytest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from flask import Flask
 from swpt_pythonlib import utils as c
 
@@ -131,6 +131,35 @@ def test_seqnum_class():
     assert c.Seqnum(0).increment().value == 1
     assert c.Seqnum(MAX_INT32).increment().value == MIN_INT32
     assert c.Seqnum(MIN_INT32).increment().value == MIN_INT32 + 1
+
+
+def test_approx_timestamp_class():
+    t = datetime.utcnow()
+    d = timedelta(seconds=1.5)
+    assert c.ApproxTs(t) == c.ApproxTs(t)
+    assert c.ApproxTs(t) >= c.ApproxTs(t)
+    assert c.ApproxTs(t) <= c.ApproxTs(t)
+
+    assert c.ApproxTs(t) == c.ApproxTs(t + d)
+    assert c.ApproxTs(t) <= c.ApproxTs(t + d)
+    assert c.ApproxTs(t) >= c.ApproxTs(t + d)
+
+    assert c.ApproxTs(t) == c.ApproxTs(t - d)
+    assert c.ApproxTs(t) <= c.ApproxTs(t - d)
+    assert c.ApproxTs(t) >= c.ApproxTs(t - d)
+
+    assert c.ApproxTs(t - d) != c.ApproxTs(t + d)
+    assert c.ApproxTs(t - d) < c.ApproxTs(t + d)
+    assert c.ApproxTs(t - d) <= c.ApproxTs(t + d)
+
+    assert c.ApproxTs(t + d) != c.ApproxTs(t - d)
+    assert c.ApproxTs(t + d) > c.ApproxTs(t - d)
+    assert c.ApproxTs(t + d) >= c.ApproxTs(t - d)
+
+    with pytest.raises(TypeError):
+        c.ApproxTs(t) > 'some object'
+
+    assert c.ApproxTs(t) != 'some object'
 
 
 def test_calc_bin_routing_key():
