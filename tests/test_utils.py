@@ -176,6 +176,13 @@ def test_calc_bin_routing_key():
         c.calc_bin_routing_key('')
 
 
+def test_calc_iri_routing_key():
+    h1 = c.calc_iri_routing_key("https://example.com/iri")
+    h2 = c.calc_iri_routing_key("https://example.com/iri2")
+    assert h1 == '0.1.0.0.0.0.1.1.1.1.0.1.0.1.0.0.1.1.0.0.0.1.0.1'
+    assert h2 == '0.0.0.1.0.1.0.1.0.0.0.1.1.1.1.1.0.0.1.1.1.0.1.0'
+
+
 def test_i64_to_hex_routing_key():
     assert c.i64_to_hex_routing_key(2) == '00.00.00.00.00.00.00.02'
     assert c.i64_to_hex_routing_key(-2) == 'ff.ff.ff.ff.ff.ff.ff.fe'
@@ -195,22 +202,31 @@ def test_sharding_realm():
         assert r.match(n)
         assert r.match(n, match_parent=False)
         assert r.match(n, match_parent=True)
+        assert r.match_str(str(n))
+        assert r.match_str(str(n), match_parent=False)
+        assert r.match_str(str(n), match_parent=True)
 
     r = c.ShardingRealm('1.1.1.1.1.1.0.#')
     assert r.match(123)
+    assert r.match_str("65")
     assert not r.match(124)
+    assert not r.match_str("66")
 
     r = c.ShardingRealm('0.0.0.0.1.0.#')
     assert r.match(123, 456)
+    assert r.match_str("59")
     assert not r.match(123, 457)
     assert not r.match(124, 456)
+    assert not r.match_str("60")
 
     r = c.ShardingRealm('0.1.#')
     rp = c.ShardingRealm('0.#')
     for n in range(100):
         assert r.match(n, match_parent=True) == rp.match(n)
+        assert r.match_str(str(n), match_parent=True) == rp.match_str(str(n))
 
     r = c.ShardingRealm('1.0.#')
     rp = c.ShardingRealm('1.#')
     for n in range(100):
         assert r.match(n, match_parent=True) == rp.match(n)
+        assert r.match_str(str(n), match_parent=True) == rp.match_str(str(n))
