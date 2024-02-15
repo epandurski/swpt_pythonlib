@@ -2,6 +2,13 @@ Changelog
 =========
 
 
+Version 0.9.5
+-------------
+
+- Added `calc_iri_routing_key` function
+- Added `match_str` method to the `ShardingRealm` class
+
+
 Version 0.9.4
 -------------
 

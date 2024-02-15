@@ -45,6 +45,35 @@ class ShardingRealm:
         self.parent_realm_mask = self.realm_mask & (self.realm_mask << 1)
         self.parent_realm = self.realm & self.parent_realm_mask
 
+    def _match_md5_hash(self, md5_hash: bytes, match_parent=False) -> bool:
+        sharding_key = int.from_bytes(md5_hash[:4], byteorder="big")
+        if match_parent:
+            return sharding_key & self.parent_realm_mask == self.parent_realm
+        else:
+            return sharding_key & self.realm_mask == self.realm
+
+    def match_str(self, s: str, match_parent=False) -> bool:
+        """Return whether the shard is responsible for the passed string-key.
+
+        Also, it is possible to check whether the parent shard would
+        be responsible for the passed string-key.
+
+        Example::
+
+          >>> r = ShardingRealm('1.#')
+          >>> r.match("65")
+          True
+          >>> r.match("59")
+          False
+          >>> r.match("59", match_parent=True)  # The parent shard is "#"
+          True
+
+        """
+
+        m = md5()
+        m.update(s.encode("utf8"))
+        return self._match_md5_hash(m.digest(), match_parent=match_parent)
+
     def match(self, first: int, *rest: int, match_parent=False) -> bool:
         """Return whether the shard is responsible for the passed sharding key.
 
@@ -65,12 +94,9 @@ class ShardingRealm:
 
         """
 
-        md5_hash = _calc_md5_hash(first, *rest)
-        sharding_key = int.from_bytes(md5_hash[:4], byteorder="big")
-        if match_parent:
-            return sharding_key & self.parent_realm_mask == self.parent_realm
-        else:
-            return sharding_key & self.realm_mask == self.realm
+        return self._match_md5_hash(
+            _calc_md5_hash(first, *rest), match_parent=match_parent
+        )
 
 
 @total_ordering
@@ -306,6 +332,26 @@ def calc_bin_routing_key(first: int, *rest: int) -> str:
     """
 
     md5_hash = _calc_md5_hash(first, *rest)
+    s = "".join([format(byte, "08b") for byte in md5_hash[:3]])
+    assert len(s) == 24
+    return ".".join(s)
+
+
+def calc_iri_routing_key(iri: str) -> str:
+    """Calculate a binary RabbitMQ routing key from an IRI string.
+
+    The binary routing key is calculated by taking the highest 24
+    bits, separated with dots, of the MD5 digest of the UTF-8
+    serialization of the passed IRI string. For example::
+
+      >>> calc_iri_routing_key("https://example.com/iri")
+      '0.1.0.0.0.0.1.1.1.1.0.1.0.1.0.0.1.1.0.0.0.1.0.1'
+
+    """
+
+    m = md5()
+    m.update(iri.encode("utf8"))
+    md5_hash = m.digest()
     s = "".join([format(byte, "08b") for byte in md5_hash[:3]])
     assert len(s) == 24
     return ".".join(s)
