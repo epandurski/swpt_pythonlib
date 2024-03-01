@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.9.6
+-------------
+
+- Limit the maximum number of rows per beat in `TableScanner`
+
+
 Version 0.9.5
 -------------
 

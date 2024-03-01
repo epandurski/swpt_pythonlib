@@ -202,7 +202,13 @@ class TableScanner:
         assert self.target_beat_duration > 0
         target_duration = timedelta(milliseconds=self.target_beat_duration)
         target_number_of_beats = max(1, completion_goal // target_duration)
-        rows_per_beat = max(1, ceil(total_rows / target_number_of_beats))
+        rows_per_beat = min(
+            # The maximum number of bound parameters in Postgres is
+            # limited to 32000. Therefore, we want the number of rows
+            # per beat to be much smaller than this number. Here we
+            # set the limit to 5000, which seems reasonable.
+            max(1, ceil(total_rows / target_number_of_beats)), 5000
+        )
         number_of_beats = max(1, ceil(total_rows / rows_per_beat))
         return _Rhythm(completion_goal, number_of_beats), rows_per_beat
 
