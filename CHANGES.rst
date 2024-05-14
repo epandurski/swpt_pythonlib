@@ -2,6 +2,14 @@ Changelog
 =========
 
 
+Version 0.10.0
+--------------
+
+- Support version 2.0 of the Swaptacular Messaging Protocol
+- Removed `ApproxTs` class
+- Improved doc-strings
+
+
 Version 0.9.6
 -------------
 

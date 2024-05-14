@@ -174,7 +174,7 @@ def test_prepare_transfer():
     "min_locked_amount": 1000000000000,
     "max_locked_amount": 2000000000000,
     "recipient": "test recipient",
-    "min_interest_rate": -100,
+    "final_interest_rate_ts": "2099-01-01T00:00:00+00:00",
     "max_commit_delay": 2147483647,
     "ts": "2022-01-01T00:00:00Z",
     "unknown": "ignored"
@@ -193,8 +193,10 @@ def test_prepare_transfer():
     assert data['max_locked_amount'] == 2000000000000
     assert type(data['max_locked_amount']) is int
     assert data['recipient'] == 'test recipient'
-    assert data['min_interest_rate'] == -100.0
-    assert type(data['min_interest_rate']) is float
+    assert data['final_interest_rate_ts'] == (
+        datetime.fromisoformat('2099-01-01T00:00:00+00:00')
+    )
+    assert type(data['final_interest_rate_ts']) is datetime
     assert data['max_commit_delay'] == 2147483647
     assert type(data['max_commit_delay']) is int
     assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
@@ -275,7 +277,7 @@ def test_prepared_transfer():
     "prepared_at": "2022-01-01T00:00:00Z",
     "demurrage_rate": -5.5e0,
     "deadline": "2022-02-01T00:00:00Z",
-    "min_interest_rate": -10,
+    "final_interest_rate_ts": "2099-01-01T00:00:00+00:00",
     "ts": "2022-01-01T00:00:00Z",
     "unknown": "ignored"
     }""")
@@ -296,8 +298,10 @@ def test_prepared_transfer():
     assert data['demurrage_rate'] == -5.5
     assert data['deadline'] == datetime.fromisoformat(
         '2022-02-01T00:00:00+00:00')
-    assert data['min_interest_rate'] == -10
-    assert type(data['min_interest_rate']) is float
+    assert data['final_interest_rate_ts'] == (
+        datetime.fromisoformat('2099-01-01T00:00:00+00:00')
+    )
+    assert type(data['final_interest_rate_ts']) is datetime
     assert data['ts'] == datetime.fromisoformat('2022-01-01T00:00:00+00:00')
     assert "unknown" not in data
 
