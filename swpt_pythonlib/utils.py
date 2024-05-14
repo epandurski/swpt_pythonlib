@@ -29,6 +29,12 @@ class ShardingRealm:
 
     This class allows to easily check if a given shard is responsible for a
     given creditor/debtor ID (or a debtor ID, creditor ID pair).
+
+    :ivar realm_mask: Bitmask for the realm (a 32-bit unsigned integer).
+    :ivar realm: Bitprefix for the realm (a 32-bit unsigned integer)
+
+    :ivar parent_realm_mask: Bitmask for the parent realm.
+    :ivar parent_realm: Bitprefix for the parent realm.
     """
 
     def __init__(self, routing_key: str):
@@ -124,39 +130,6 @@ class Seqnum:
         value = self.value
         assert _MIN_INT32 <= value <= _MAX_INT32
         return Seqnum(_MIN_INT32 if value == _MAX_INT32 else value + 1)
-
-
-@total_ordering
-class ApproxTs:
-    """A timestamp that ignores differences of few seconds when comparing.
-
-    Example::
-
-      >>> from datetime import datetime, timedelta
-      >>> t = datetime.utcnow()
-      >>> ApproxTs(t) == ApproxTs(t)
-      True
-      >>> ApproxTs(t) == ApproxTs(t + timedelta(seconds=1))
-      True
-      >>> ApproxTs(t) == ApproxTs(t + timedelta(seconds=1000))
-      False
-      >>> ApproxTs(t) < ApproxTs(t + timedelta(seconds=1000))
-      True
-    """
-
-    def __init__(self, value: datetime):
-        assert isinstance(value, datetime)
-        self.value = value
-
-    def __eq__(self, other: object):
-        if not isinstance(other, ApproxTs):
-            return NotImplemented
-        return abs(self.value - other.value) < _TD_PLUS_2SECONDS
-
-    def __gt__(self, other: object):
-        if not isinstance(other, ApproxTs):
-            return NotImplemented
-        return self.value - other.value >= _TD_PLUS_2SECONDS
 
 
 def get_config_value(key: str) -> Optional[str]:

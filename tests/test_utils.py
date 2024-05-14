@@ -133,35 +133,6 @@ def test_seqnum_class():
     assert c.Seqnum(MIN_INT32).increment().value == MIN_INT32 + 1
 
 
-def test_approx_timestamp_class():
-    t = datetime.utcnow()
-    d = timedelta(seconds=1.5)
-    assert c.ApproxTs(t) == c.ApproxTs(t)
-    assert c.ApproxTs(t) >= c.ApproxTs(t)
-    assert c.ApproxTs(t) <= c.ApproxTs(t)
-
-    assert c.ApproxTs(t) == c.ApproxTs(t + d)
-    assert c.ApproxTs(t) <= c.ApproxTs(t + d)
-    assert c.ApproxTs(t) >= c.ApproxTs(t + d)
-
-    assert c.ApproxTs(t) == c.ApproxTs(t - d)
-    assert c.ApproxTs(t) <= c.ApproxTs(t - d)
-    assert c.ApproxTs(t) >= c.ApproxTs(t - d)
-
-    assert c.ApproxTs(t - d) != c.ApproxTs(t + d)
-    assert c.ApproxTs(t - d) < c.ApproxTs(t + d)
-    assert c.ApproxTs(t - d) <= c.ApproxTs(t + d)
-
-    assert c.ApproxTs(t + d) != c.ApproxTs(t - d)
-    assert c.ApproxTs(t + d) > c.ApproxTs(t - d)
-    assert c.ApproxTs(t + d) >= c.ApproxTs(t - d)
-
-    with pytest.raises(TypeError):
-        c.ApproxTs(t) > 'some object'
-
-    assert c.ApproxTs(t) != 'some object'
-
-
 def test_calc_bin_routing_key():
     assert c.calc_bin_routing_key(123) == \
         '1.1.1.1.1.1.0.0.0.0.0.1.0.0.0.0.0.1.1.0.0.0.1.1'

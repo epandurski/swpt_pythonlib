@@ -159,9 +159,7 @@ class PrepareTransferMessageSchema(_ValidateCoordinatorFieldsMixin, Schema):
     recipient = fields.String(
         required=True, validate=validate.Length(max=ACCOUNT_ID_MAX_BYTES)
     )
-    min_interest_rate = fields.Float(
-        required=True, validate=validate.Range(min=-100.0)
-    )
+    final_interest_rate_ts = fields.DateTime(required=True)
     max_commit_delay = fields.Integer(
         required=True, validate=validate.Range(min=0, max=MAX_INT32)
     )
@@ -261,9 +259,7 @@ class PreparedTransferMessageSchema(_ValidateCoordinatorFieldsMixin, Schema):
         required=True, validate=validate.Range(min=-100.0, max=0.0)
     )
     deadline = fields.DateTime(required=True)
-    min_interest_rate = fields.Float(
-        required=True, validate=validate.Range(min=-100.0)
-    )
+    final_interest_rate_ts = fields.DateTime(required=True)
     ts = fields.DateTime(required=True)
 
     @validates("recipient")
