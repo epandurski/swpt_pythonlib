@@ -2,6 +2,13 @@ Changelog
 =========
 
 
+Version 0.10.2
+--------------
+
+- Fix scanning error when table has never yet been vacuumed or
+  analyzed.
+
+
 Version 0.10.1
 --------------
 

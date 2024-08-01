@@ -193,10 +193,10 @@ class TableScanner:
 
     def __create_rhythm(
         self,
-        total_rows: int,
+        total_rows: float,
         completion_goal: timedelta,
     ) -> Tuple[_Rhythm, int]:
-        assert total_rows >= 0
+        assert total_rows >= 0.0
         assert self.target_beat_duration > 0
         target_duration = timedelta(milliseconds=self.target_beat_duration)
         target_number_of_beats = max(1, completion_goal // target_duration)
@@ -262,6 +262,10 @@ class TableScanner:
 
             if total_rows is None:
                 raise RuntimeError(f'The table "{tablename}" does not exist.')
+            if total_rows < 0.0:
+                # PostgreSQL docs say that this may happen if the
+                # table has never yet been vacuumed or analyzed.
+                total_rows = 0.0
 
             rhythm, rows_per_beat = self.__create_rhythm(
                 total_rows, completion_goal
