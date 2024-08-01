@@ -1,7 +1,7 @@
 import logging
 from typing import List, Tuple, Optional, Sequence
 from collections import deque
-import sqlalchemy
+from sqlalchemy import select, text
 from sqlalchemy.schema import Table
 from sqlalchemy.engine import Connectable, Engine, Connection, RowMapping
 from sqlalchemy.sql.expression import ColumnElement
@@ -12,12 +12,7 @@ import random
 
 _DEFAULT_BLOCKS_PER_QUERY = 40
 _DEFAULT_TARGET_BEAT_DURATION = 25
-
-_TID_RANGE_CLAUSE = """ctid = ANY (ARRAY (
-  SELECT ('(' || b.b || ',' || t.t || ')')::tid
-  FROM generate_series({first_block:d}, {last_block:d}) AS b(b),
-  generate_series(0, current_setting('block_size')::int / 32) AS t(t)
-))"""
+_TID_RANGE_CLAUSE = "ctid >= '({:d}, 0)' AND ctid < '({:d}, 0)'"
 
 
 class _TableReader:
@@ -26,9 +21,9 @@ class _TableReader:
     class EndOfTableError(Exception):
         """The end of the table has been reached."""
 
-    LAST_BLOCK_QUERY = (
+    LAST_BLOCK_QUERY = text(
         "SELECT"
-        " pg_relation_size('{tablename}') / current_setting('block_size')::int"
+        " pg_relation_size(:tablename) / current_setting('block_size')::int"
     )
 
     def __init__(
@@ -45,18 +40,20 @@ class _TableReader:
         self.logger = logging.getLogger(__name__)
         self.connection = connection
         self.table = table
-        self.table_query = sqlalchemy.select(*(columns or table.columns))
+        self.last_block_query_params = {"tablename": table.name}
+        self.table_query = select(*(columns or table.columns))
+        self.tid_range_query_execution_options = {"compiled_cache": None}
         self.blocks_per_query = blocks_per_query
         self.current_block = -1
         self.queue: deque = deque()
 
     def _ensure_valid_current_block(self) -> None:
-        result = self.connection.execute(
-            sqlalchemy.text(
-                self.LAST_BLOCK_QUERY.format(tablename=self.table.name)
+        last_block = (
+            self.connection.execute(
+                self.LAST_BLOCK_QUERY, self.last_block_query_params
             )
+            .scalar()
         )
-        last_block = result.scalar()
         assert last_block is not None
         total_blocks = last_block + 1
         assert total_blocks > 0
@@ -69,18 +66,19 @@ class _TableReader:
     def _advance_current_block(self) -> Sequence[RowMapping]:
         with self.connection.begin():
             self._ensure_valid_current_block()
-            first_block = self.current_block
+            previous_block = self.current_block
             self.current_block += self.blocks_per_query
-            last_block = self.current_block - 1
-            tid_range_clause = sqlalchemy.text(
-                _TID_RANGE_CLAUSE.format(
-                    first_block=first_block,
-                    last_block=last_block,
-                )
+            tid_range_query = self.table_query.where(
+                text(_TID_RANGE_CLAUSE.format(previous_block, self.current_block))
             )
-            tid_range_query = self.table_query.where(tid_range_clause)
             return (
-                self.connection.execute(tid_range_query).mappings().fetchall()
+                self.connection
+                .execute(
+                    tid_range_query,
+                    execution_options=self.tid_range_query_execution_options,
+                )
+                .mappings()
+                .fetchall()
             )
 
     def read_rows(self, count: int) -> list[RowMapping]:
@@ -157,10 +155,10 @@ class TableScanner:
 
     """
 
-    TOTAL_ROWS_QUERY = (
+    TOTAL_ROWS_QUERY = text(
         "SELECT reltuples::bigint"
         " FROM pg_catalog.pg_class"
-        " WHERE relname = '{tablename}'"
+        " WHERE relname = :tablename"
     )
 
     table: Optional[Table] = None
@@ -259,9 +257,7 @@ class TableScanner:
             tablename = self.table.name
             with connection.begin():
                 total_rows = connection.execute(
-                    sqlalchemy.text(
-                        self.TOTAL_ROWS_QUERY.format(tablename=tablename)
-                    )
+                    self.TOTAL_ROWS_QUERY, {"tablename": tablename}
                 ).scalar()
 
             if total_rows is None:
