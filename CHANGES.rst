@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.10.1
+--------------
+
+- Use TID range queries in `scan_table.py`
+
+
 Version 0.10.0
 --------------
 

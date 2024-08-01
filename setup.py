@@ -19,16 +19,11 @@ also be triggered explicitly with a method call, or through the Flask
 CLI.
 """
 
-import sys
 from setuptools import setup
-
-needs_pytest = {'pytest', 'test', 'ptr'}.intersection(sys.argv)
-pytest_runner = ['pytest-runner'] if needs_pytest else []
-
 
 setup(
     name='Swpt-Pythonlib',
-    version='0.10.0',
+    version='0.10.1',
     url='https://github.com/swaptacular/swpt_pythonlib',
     license='MIT',
     author='Evgeni Pandurski',
@@ -42,7 +37,6 @@ setup(
     ],
     zip_safe=True,
     platforms='any',
-    setup_requires=pytest_runner,
     install_requires=[
         'Flask>=2.2.5',
         'SQLAlchemy>=1.4.18',
