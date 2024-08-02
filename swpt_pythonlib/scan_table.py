@@ -45,6 +45,7 @@ class _TableReader:
         self.tid_range_query_execution_options = {"compiled_cache": None}
         self.blocks_per_query = blocks_per_query
         self.current_block = -1
+        self.fast_forward_mode = False
         self.queue: deque = deque()
 
     def _ensure_valid_current_block(self) -> None:
@@ -60,18 +61,25 @@ class _TableReader:
 
         if self.current_block < 0:
             self.current_block = random.randrange(total_blocks)
-        if self.current_block >= total_blocks:
+        elif self.current_block >= total_blocks:
             raise self.EndOfTableError()
 
     def _advance_current_block(self) -> Sequence[RowMapping]:
         with self.connection.begin():
-            self._ensure_valid_current_block()
+            if self.current_block < 0:
+                # Reading hasn't started yet. We must choose a random
+                # block to start from.
+                self._ensure_valid_current_block()
+
             previous_block = self.current_block
             self.current_block += self.blocks_per_query
+            if self.fast_forward_mode:
+                self.current_block += self.blocks_per_query
+
             tid_range_query = self.table_query.where(
                 text(_TID_RANGE_CLAUSE.format(previous_block, self.current_block))
             )
-            return (
+            rows = (
                 self.connection
                 .execute(
                     tid_range_query,
@@ -80,6 +88,16 @@ class _TableReader:
                 .mappings()
                 .fetchall()
             )
+            if len(rows) == 0:
+                # Maybe we have reached the end of the table? If not,
+                # we probably are traversing a sequence of empty
+                # pages, so we switch to fast-forward mode (2x speed).
+                self._ensure_valid_current_block()
+                self.fast_forward_mode = True
+            else:
+                self.fast_forward_mode = False
+
+            return rows
 
     def read_rows(self, count: int) -> list[RowMapping]:
         """Return a list of at most `count` rows."""
@@ -200,14 +218,22 @@ class TableScanner:
         assert self.target_beat_duration > 0
         target_duration = timedelta(milliseconds=self.target_beat_duration)
         target_number_of_beats = max(1, completion_goal // target_duration)
+
+        # The maximum number of bound parameters in PostgreSQL is
+        # limited to 32000. Therefore, we want the number of rows per
+        # beat to be much smaller than this number. Here we set a
+        # maximum of 5000, which seems reasonable. The minimum is set
+        # to 10 which ensures that we always enjoy some performance
+        # benefits from batching.
         rows_per_beat = min(
-            # The maximum number of bound parameters in Postgres is
-            # limited to 32000. Therefore, we want the number of rows
-            # per beat to be much smaller than this number. Here we
-            # set the limit to 5000, which seems reasonable.
-            max(1, ceil(total_rows / target_number_of_beats)), 5000
+            max(10, ceil(total_rows / target_number_of_beats)), 5000
         )
-        number_of_beats = max(1, ceil(total_rows / rows_per_beat))
+        # We want every rhythm to have at least 5 beats. This ensures
+        # that an additional beat at the end (which is highly likely)
+        # will not change significantly the total duration of the
+        # rhythm.
+        number_of_beats = max(5, ceil(total_rows / rows_per_beat))
+
         return _Rhythm(completion_goal, number_of_beats), rows_per_beat
 
     def run(
@@ -240,9 +266,9 @@ class TableScanner:
         else:
             raise ValueError("not a connectable")
 
-        assert (
-            self.table is not None
-        ), '"table" must be defined in the subclass.'
+        assert self.table is not None, (
+            '"table" must be defined in the subclass.'
+        )
         reader_id = "<{} at 0x{:x}>".format(type(self).__name__, id(self))
         reader = _TableReader(
             reader_id,
@@ -251,33 +277,37 @@ class TableScanner:
             self.blocks_per_query,
             self.columns,
         )
-        n = 0
-        while True:
-            n += 1
-            tablename = self.table.name
-            with connection.begin():
-                total_rows = connection.execute(
-                    self.TOTAL_ROWS_QUERY, {"tablename": tablename}
-                ).scalar()
+        tablename = self.table.name
+        scans_counter = 0
 
+        while True:
+            scans_counter += 1
+
+            with connection.begin():
+                total_rows = (
+                    connection.execute(
+                        self.TOTAL_ROWS_QUERY, {"tablename": tablename}
+                    )
+                    .scalar()
+                )
             if total_rows is None:
                 raise RuntimeError(f'The table "{tablename}" does not exist.')
+
             if total_rows < 0.0:
-                # PostgreSQL docs say that this may happen if the
+                # PostgreSQL's docs say that this may happen if the
                 # table has never yet been vacuumed or analyzed.
                 total_rows = 0.0
 
             rhythm, rows_per_beat = self.__create_rhythm(
                 total_rows, completion_goal
             )
-
             while not rhythm.has_ended:
                 rows = reader.read_rows(count=rows_per_beat)
                 if rows:
                     self.process_rows(rows)
                 rhythm.register_beat()
 
-            if quit_early and n > 10:  # pragma: no cover
+            if quit_early and scans_counter > 10:  # pragma: no cover
                 break
 
     def process_rows(self, rows: list) -> None:  # pragma: no cover

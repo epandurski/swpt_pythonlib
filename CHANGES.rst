@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.10.3
+--------------
+
+- Improved scanning performance
+
+
 Version 0.10.2
 --------------
 
