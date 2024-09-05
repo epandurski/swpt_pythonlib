@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+Version 0.10.4
+--------------
+
+- Added optional `draining_mode` argument to the `Consumer` constructor
+
+
 Version 0.10.3
 --------------
 
