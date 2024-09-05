@@ -31,7 +31,7 @@ def publisher(app, request):
     return p
 
 
-@pytest.fixture(params=['direct', 'init_app'])
+@pytest.fixture(params=['direct', 'direct_draining', 'init_app'])
 def consumer(app, request):
     class C(rabbitmq.Consumer):
         def __init__(self, *args, **kwargs):
@@ -45,6 +45,8 @@ def consumer(app, request):
 
     if request.param == 'direct':
         p = C(app)
+    elif request.param == 'direct_draining':
+        p = C(app, draining_mode=True)
     elif request.param == 'init_app':
         p = C()
         p.init_app(app)
@@ -78,12 +80,13 @@ def test_publisher(publisher, message):
 def test_consumer_creation(app):
     consumer = rabbitmq.Consumer(
         app, url='url1', queue='q1', threads=2,
-        prefetch_size=10000, prefetch_count=5)
+        prefetch_size=10000, prefetch_count=5, draining_mode=True)
     assert consumer.url == 'url1'
     assert consumer.queue == 'q1'
     assert consumer.threads == 2
     assert consumer.prefetch_size == 10000
     assert consumer.prefetch_count == 5
+    assert consumer.draining_mode is True
 
     consumer = rabbitmq.Consumer(app)
     assert consumer.url == '?heartbeat=5'
@@ -96,7 +99,7 @@ def test_consumer_creation(app):
 @pytest.mark.skip('requires RabbitMQ instance running')
 def test_consumer(consumer, publisher, message):
     def stop_consuming_after_a_while():
-        time.sleep(5)
+        time.sleep(10)
         consumer.stop()
 
     threading.Thread(target=stop_consuming_after_a_while).start()
@@ -141,7 +144,7 @@ def test_consumer_sigterm(app):
     thread_id = threading.get_ident()
 
     def send_sigterm_after_a_while():
-        time.sleep(5)
+        time.sleep(10)
         signal.pthread_kill(thread_id, signal.SIGTERM)
 
     threading.Thread(target=send_sigterm_after_a_while).start()

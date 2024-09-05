@@ -23,7 +23,7 @@ from setuptools import setup
 
 setup(
     name='Swpt-Pythonlib',
-    version='0.10.3',
+    version='0.10.4',
     url='https://github.com/swaptacular/swpt_pythonlib',
     license='MIT',
     author='Evgeni Pandurski',

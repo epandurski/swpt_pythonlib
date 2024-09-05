@@ -1,6 +1,7 @@
 import logging
 import threading
 import queue
+import time
 import pika
 import pika.exceptions
 from typing import Optional, Any
@@ -103,6 +104,13 @@ class Consumer:
       ``{config_prefix}_PREFETCH_COUNT`` Flask configuration setting
       will be used (the default is 1).
 
+    :param draining_mode: If set to `True` (the default is `False`),
+      when the queue has become empty, the consumption will stop for a
+      while. This allows the emptied queue to be deleted safely. (In
+      order to guarantee that no massages will be lost when deleting
+      the queue, at the moment of the deletion there must be no
+      remaining consumers.)
+
     The received messages will be processed by a pool of worker
     threads, created by the consumer instance, after the `start`
     method is called. Each consumer instance maintains a separate
@@ -134,6 +142,7 @@ class Consumer:
         threads: Optional[int] = None,
         prefetch_size: Optional[int] = None,
         prefetch_count: Optional[int] = None,
+        draining_mode: bool = False,
     ):
         self.config_prefix = config_prefix
         self.url = url
@@ -141,6 +150,8 @@ class Consumer:
         self.threads = threads
         self.prefetch_size = prefetch_size
         self.prefetch_count = prefetch_count
+        self.draining_mode = draining_mode
+        self._draining_pause_seconds = 15.0
         self._stopped = True
         self._work_queue: Optional[queue.Queue] = None
         self._connection: Optional[pika.BlockingConnection] = None
@@ -210,13 +221,26 @@ class Consumer:
             worker.start()
 
         try:
-            for method, properties, body in channel.consume(
-                self.queue, inactivity_timeout=1.0
-            ):  # type: ignore
-                if method is not None:
-                    self._work_queue.put((channel, method, properties, body))
-                if self._stopped:
-                    break
+            while not self._stopped:
+                inactivity_counter = 0
+
+                for method, properties, body in channel.consume(
+                    self.queue, inactivity_timeout=1.0
+                ):  # type: ignore
+                    if method is not None:
+                        inactivity_counter = 0
+                        t = (channel, method, properties, body)
+                        self._work_queue.put(t)
+                    else:
+                        inactivity_counter += 1
+                        if self.draining_mode and (
+                                inactivity_counter > self.inactivity_threshold
+                        ):
+                            channel.cancel()
+                            self._make_draining_pause()
+
+                    if self._stopped:
+                        break
         except pika.exceptions.ChannelClosed:
             pass
 
@@ -275,3 +299,23 @@ class Consumer:
             self._connection.close()
 
         self._connection = None
+
+    @property
+    def inactivity_threshold(self):
+        return 1 + int(self._draining_pause_seconds / 20.0)
+
+    def _make_draining_pause(self):
+        # The duration of the pause is calculated so that, if
+        # possible, all draining consumer instances will start at the
+        # same time.
+        epoch = time.time()
+        dps = self._draining_pause_seconds
+        pause_until = epoch + ((epoch + dps) % dps)
+
+        while not self._stopped:
+            remaining_seconds = pause_until - time.time()
+            if remaining_seconds < 0.01:
+                break
+            self._connection.sleep(min(1.0, remaining_seconds))
+
+        self._draining_pause_seconds = min(2.0 * dps, 3600.0)
