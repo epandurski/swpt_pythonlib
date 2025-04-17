@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+0.10.5
+--------------
+
+- Fixed dependencies' version specs
+
+
 Version 0.10.4
 --------------
 
