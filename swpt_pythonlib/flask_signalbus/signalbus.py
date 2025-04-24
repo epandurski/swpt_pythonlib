@@ -144,7 +144,7 @@ class SignalBusMixin:
 
         app = Flask(__name__)
         db = CustomSQLAlchemy(app)
-        db.signalbus.flush()
+        db.signalbus.flushmany()
     """
 
     signalbus: SignalBus
