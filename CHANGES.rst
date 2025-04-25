@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+0.10.6
+--------------
+
+- Fixed dependencies' version incompatibilities
+
+
 0.10.5
 --------------
 
