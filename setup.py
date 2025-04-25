@@ -23,7 +23,7 @@ from setuptools import setup
 
 setup(
     name='Swpt-Pythonlib',
-    version='0.10.5',
+    version='0.10.6',
     url='https://github.com/swaptacular/swpt_pythonlib',
     license='MIT',
     author='Evgeni Pandurski',
@@ -38,7 +38,7 @@ setup(
     zip_safe=True,
     platforms='any',
     install_requires=[
-        'Flask>=2.2.5,<3',
+        'Flask>=2.2.5,<4',
         'SQLAlchemy>=1.4.18,<3',
         'Flask-SQLAlchemy>=3.0.5,<4',
         'marshmallow>=3.10,<4',
