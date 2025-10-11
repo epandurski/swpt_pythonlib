@@ -167,11 +167,12 @@ def spawn_worker_processes(processes: int, target, **kwargs):
     # signals that the main process is expected to handle.
     try_block_signals()
 
+    mp = multiprocessing.get_context("fork")
     logger = logging.getLogger(__name__)
     logger.info("Spawning %i worker processes...", processes)
 
     for _ in range(processes):
-        p = multiprocessing.Process(target=worker, kwargs=kwargs)
+        p = mp.Process(target=worker, kwargs=kwargs)
         p.start()
         worker_processes.append(p)
 
