@@ -77,7 +77,7 @@ def test_configure_account_infinity():
     s = ps.ConfigureAccountMessageSchema()
 
     with pytest.raises(ValidationError, match=r'Special numeric values '
-                       '\(nan or infinity\) are not permitted'):
+                       r'\(nan or infinity\) are not permitted'):
         s.loads("""{
         "type": "ConfigureAccount",
         "creditor_id": 1,
@@ -91,7 +91,7 @@ def test_configure_account_infinity():
         }""")
 
     with pytest.raises(ValidationError, match=r'Special numeric values '
-                       '\(nan or infinity\) are not permitted'):
+                       r'\(nan or infinity\) are not permitted'):
         s.load({
             "type": "ConfigureAccount",
             "creditor_id": 1,
