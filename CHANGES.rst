@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+0.10.7
+--------------
+
+- Minor changes to Support Python 3.14
+
+
 0.10.6
 --------------
 
