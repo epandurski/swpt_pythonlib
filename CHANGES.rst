@@ -2,6 +2,13 @@ Changelog
 =========
 
 
+0.10.8
+--------------
+
+- Use server-side cursor for reading the signals
+- Expunge sent signals from the session after commit
+
+
 0.10.7
 --------------
 
