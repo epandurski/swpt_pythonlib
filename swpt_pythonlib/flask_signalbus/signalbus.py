@@ -1,6 +1,9 @@
 import logging
 import flask_sqlalchemy as fsa
 import sqlalchemy.orm as sa_orm
+from sqlalchemy import select
+from sqlalchemy.inspection import inspect
+from sqlalchemy.sql.expression import tuple_
 from typing import Iterable, Optional
 from flask_sqlalchemy.model import Model
 from flask import Flask
@@ -83,13 +86,6 @@ class SignalBus:
         app.extensions["signalbus"] = self
         app.cli.add_command(signalbus_cli.signalbus)
 
-    def _compose_signal_query(
-        self, model_cls: type[Model], max_count: int
-    ) -> sa_orm.Query:
-        query = self.db.session.query(model_cls)
-        query = query.limit(max_count)
-        return query
-
     def _get_signal_burst_count(self, model_cls: type[Model]) -> int:
         burst_count = int(getattr(model_cls, "signalbus_burst_count", 1))
         assert burst_count > 0, '"signalbus_burst_count" must be positive'
@@ -117,15 +113,27 @@ class SignalBus:
         logger.info("Flushing %s.", model_cls.__name__)
         sent_count = 0
         burst_count = self._get_signal_burst_count(model_cls)
-        query = self._compose_signal_query(model_cls, max_count=burst_count)
-        query = query.with_for_update(skip_locked=True)
-        while True:
-            signals = query.all()
-            sent_count += self._send_and_delete_instances(model_cls, signals)
-            self.db.session.commit()
-            if len(signals) < burst_count:
-                break
-
+        mapper = inspect(model_cls)
+        pk_attrs = [
+            mapper.get_property_by_column(c).class_attribute
+            for c in mapper.primary_key
+        ]
+        with self.db.engine.connect() as conn:
+            with conn.execution_options(yield_per=burst_count).execute(
+                select(*pk_attrs)
+            ) as result:
+                pk = tuple_(*pk_attrs)
+                session = self.db.session
+                query = session.query(model_cls).with_for_update(skip_locked=True)
+                for primary_keys in result.partitions():
+                    signals = query.filter(pk.in_(primary_keys)).all()
+                    sent_count += self._send_and_delete_instances(
+                        model_cls, signals
+                    )
+                    session.flush()
+                    for x in signals:
+                        session.expunge(x)
+                    session.commit()
         return sent_count
 
 
