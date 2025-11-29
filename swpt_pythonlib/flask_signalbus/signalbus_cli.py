@@ -2,6 +2,7 @@ import sys
 import time
 import logging
 import click
+import random
 from flask.cli import with_appcontext
 from flask import current_app
 from .signalbus import SignalBus, get_models_to_flush
@@ -33,6 +34,8 @@ def flushmany(signal_names: list[str], repeat: float) -> None:
     logger.info(
         "Started flushing %s.", ", ".join(m.__name__ for m in models_to_flush)
     )
+    if repeat is not None:
+        time.sleep(repeat * random.random())
 
     while True:
         started_at = time.time()
