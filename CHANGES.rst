@@ -2,6 +2,13 @@ Changelog
 =========
 
 
+0.10.9
+--------------
+
+- Include a random string in the signal-select query. This ensures
+  that the query will not be prepared by psycopg3.
+
+
 0.10.8
 --------------
 

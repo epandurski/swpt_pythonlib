@@ -1,9 +1,10 @@
 import logging
+import random
 import flask_sqlalchemy as fsa
 import sqlalchemy.orm as sa_orm
 from sqlalchemy import select
 from sqlalchemy.inspection import inspect
-from sqlalchemy.sql.expression import tuple_
+from sqlalchemy.sql.expression import tuple_, text
 from typing import Iterable, Optional
 from flask_sqlalchemy.model import Model
 from flask import Flask
@@ -91,9 +92,7 @@ class SignalBus:
         assert burst_count > 0, '"signalbus_burst_count" must be positive'
         return burst_count
 
-    def _send_and_delete_instances(
-        self, model_cls: type[Model], instances: list[Model]
-    ):
+    def _send_and_delete(self, model_cls: type[Model], instances: list[Model]):
         n = len(instances)
         if n > 1 and hasattr(model_cls, "send_signalbus_messages"):
             model_cls.send_signalbus_messages(instances)
@@ -111,6 +110,7 @@ class SignalBus:
     def _flushmany_signals(self, model_cls: type[Model]) -> int:
         logger = logging.getLogger(__name__)
         logger.info("Flushing %s.", model_cls.__name__)
+
         sent_count = 0
         burst_count = self._get_signal_burst_count(model_cls)
         mapper = inspect(model_cls)
@@ -126,14 +126,27 @@ class SignalBus:
                 session = self.db.session
                 query = session.query(model_cls).with_for_update(skip_locked=True)
                 for primary_keys in result.partitions():
-                    signals = query.filter(pk.in_(primary_keys)).all()
-                    sent_count += self._send_and_delete_instances(
-                        model_cls, signals
+                    random_string = str(random.randint(1, 1000000000))
+                    signals = (
+                        # We want to be sure that this query will not
+                        # be prepared, because the cached plan may
+                        # become very inefficient as the table grows
+                        # and shrinks. To achieve this, we include a
+                        # random string in the query. (Note: psycopg3
+                        # will automatically prepare statements that
+                        # have occurred a few times.)
+                        query.filter(
+                            pk.in_(primary_keys),
+                            text(f"'{random_string}' IS NOT NULL"),
+                        )
+                        .all()
                     )
+                    sent_count += self._send_and_delete(model_cls, signals)
                     session.flush()
                     for x in signals:
                         session.expunge(x)
                     session.commit()
+
         return sent_count
 
 
