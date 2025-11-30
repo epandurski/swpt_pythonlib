@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.10.10
+--------------
+
+- Use `execution_options(compiled_cache=None)` for the signal-select query.
+- Use `expunge_all` in flask_signalbus
+
 
 0.10.9
 --------------
