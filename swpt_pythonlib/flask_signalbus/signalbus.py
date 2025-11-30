@@ -124,7 +124,11 @@ class SignalBus:
             ) as result:
                 pk = tuple_(*pk_attrs)
                 session = self.db.session
-                query = session.query(model_cls).with_for_update(skip_locked=True)
+                query = (
+                    session.query(model_cls)
+                    .execution_options(compiled_cache=None)
+                    .with_for_update(skip_locked=True)
+                )
                 for primary_keys in result.partitions():
                     random_string = str(random.randint(1, 1000000000))
                     signals = (
@@ -142,10 +146,8 @@ class SignalBus:
                         .all()
                     )
                     sent_count += self._send_and_delete(model_cls, signals)
-                    session.flush()
-                    for x in signals:
-                        session.expunge(x)
                     session.commit()
+                    session.expunge_all()
 
         return sent_count
 
