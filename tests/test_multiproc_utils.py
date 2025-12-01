@@ -19,8 +19,10 @@ def test_spawn_worker_processes():
 def test_thread_pool_processor(app):
     n = 0
 
-    def get_args_collection():
-        return [(1,), (2,), (3,), (4,)]
+    def iter_args_collections():
+        yield [(1,), (2,), (3,)]
+        yield [(4,)]
+        yield []
 
     def process(x):
         nonlocal n
@@ -29,10 +31,9 @@ def test_thread_pool_processor(app):
     with app.app_context():
         ThreadPoolProcessor(
             2,
-            get_args_collection=get_args_collection,
+            iter_args_collections=iter_args_collections,
             process_func=process,
             wait_seconds=60.0,
-            max_count=2,
         ).run(quit_early=True)
 
     assert n == 10
