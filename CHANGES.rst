@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.11.0
+--------------
+
+- Changed the way `ThreadPoolProcessor` works. Now, instead of the
+  `get_args_collection` argument, the constructor requires the
+  `iter_args_collections` argument. The `max_count` argument has been
+  removed.
+
+
 0.10.10
 --------------
 

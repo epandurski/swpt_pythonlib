@@ -29,29 +29,30 @@ def try_unblock_signals():
 class ThreadPoolProcessor:
     """Executes a function in multiple threads.
 
-    The passed `get_args_collection` function will be called from the
-    main thread ad infinitum. It should return a list of tuples. Then
-    for each of the tuples in the returned list, the `process_func`
-    will be called in worker threads, until the list is exhausted. A
-    pause of at least `wait_seconds` will be made between the
-    sequential calls of `get_args_collection`.
+    The passed `iter_args_collections` function will be called from
+    the main thread ad infinitum. It should return an iterable of a
+    list of tuples. Then for each of the tuples in the list, the
+    `process_func` will be called in worker threads, until the list is
+    exhausted. This process will continue until the returned iterable
+    is exhausted, and then `iter_args_collections` will be called
+    again to obtain a new iterable. A pause of at least `wait_seconds`
+    will be made between the sequential calls of
+    `iter_args_collections`.
     """
 
     def __init__(
         self,
         threads,
         *,
-        get_args_collection,
+        iter_args_collections,
         process_func,
         wait_seconds,
-        max_count
     ):
         self.logger = logging.getLogger(__name__)
         self.threads = threads
-        self.get_args_collection = get_args_collection
+        self.iter_args_collections = iter_args_collections
         self.process_func = process_func
         self.wait_seconds = wait_seconds
-        self.max_count = max_count
         self.all_done = threading.Condition()
         self.pending = 0
         self.error_has_occurred = False
@@ -84,31 +85,31 @@ class ThreadPoolProcessor:
             ctx.push()
 
         pool = ThreadPool(self.threads, initializer=push_app_context)
-        iteration_counter = 0
 
-        while not (
-            self.error_has_occurred or (quit_early and iteration_counter > 0)
-        ):
-            iteration_counter += 1
+        while not self.error_has_occurred:
             started_at = time.time()
-            args_collection = self.get_args_collection()
-            n = len(args_collection)
 
-            with self.all_done:
-                self.pending += n
+            for args_collection in self.iter_args_collections():
+                with self.all_done:
+                    self.pending += len(args_collection)
 
-            for args in args_collection:
-                pool.apply_async(
-                    self.process_func,
-                    args,
-                    callback=self._mark_done,
-                    error_callback=self._log_error,
-                )
+                for args in args_collection:
+                    pool.apply_async(
+                        self.process_func,
+                        args,
+                        callback=self._mark_done,
+                        error_callback=self._log_error,
+                    )
 
-            with self.all_done:
-                self._wait_until_all_done()
+                with self.all_done:
+                    self._wait_until_all_done()
 
-            if n < self.max_count:
+                if self.error_has_occurred:
+                    break
+
+            else:
+                if quit_early:
+                    break
                 time.sleep(
                     max(0.0, self.wait_seconds + started_at - time.time())
                 )
