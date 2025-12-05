@@ -139,7 +139,7 @@ class _Rhythm:
             connection: Connection,
             tablename: str,
             completion_goal: timedelta,
-            target_beat_duration: int,
+            target_beat_duration: int,  # in milliseconds
     ):
         assert completion_goal > self.TD_ZERO
         assert target_beat_duration > 0
