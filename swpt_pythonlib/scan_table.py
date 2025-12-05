@@ -132,7 +132,7 @@ class _Rhythm:
     )
     TD_ZERO = timedelta(seconds=0)
     TD_MIN_SLEEPTIME = timedelta(milliseconds=10)
-    BEATS_BEFORE_TOTAL_ROWS_CHECK = 10000
+    MINUTES_BEFORE_TOTAL_ROWS_CHECK = 15.0
 
     def __init__(
             self,
@@ -155,6 +155,11 @@ class _Rhythm:
         self.rhythm_ends_at = self.last_beat_ended_at + completion_goal
         self.extra_time = self.TD_ZERO
         self.registered_beats = 0
+        self.beats_before_total_rows_check = max(
+            1,
+            timedelta(minutes=self.MINUTES_BEFORE_TOTAL_ROWS_CHECK)
+            // self.beat_duration,
+        )
 
     def _query_total_rows(self) -> int:
         connection = self.connection
@@ -213,14 +218,14 @@ class _Rhythm:
         if self.last_beat_ended_at >= self.rhythm_ends_at:
             return True
 
-        if self.registered_beats >= self.BEATS_BEFORE_TOTAL_ROWS_CHECK:
+        if self.registered_beats >= self.beats_before_total_rows_check:
             self.registered_beats = 0
 
             # End the rhythm if the total number of rows in the table
             # has changed significantly. Here `n` represents a number
             # of rows that is small enough so as not to significantly
             # change the size of the table.
-            n = self.BEATS_BEFORE_TOTAL_ROWS_CHECK * self.rows_per_beat
+            n = self.beats_before_total_rows_check * self.rows_per_beat
             ratio = (self._query_total_rows() + n) / (self.total_rows + n)
             return not 0.8 < ratio < 1.25
 
