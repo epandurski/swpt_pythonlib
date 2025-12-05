@@ -132,7 +132,7 @@ class _Rhythm:
     )
     TD_ZERO = timedelta(seconds=0)
     TD_MIN_SLEEPTIME = timedelta(milliseconds=10)
-    MINUTES_BEFORE_TOTAL_ROWS_CHECK = 15.0
+    TD_TOTAL_ROWS_CHECK_PERIOD = timedelta(minutes=15.0)
 
     def __init__(
             self,
@@ -156,9 +156,7 @@ class _Rhythm:
         self.extra_time = self.TD_ZERO
         self.registered_beats = 0
         self.beats_before_total_rows_check = max(
-            1,
-            timedelta(minutes=self.MINUTES_BEFORE_TOTAL_ROWS_CHECK)
-            // self.beat_duration,
+            1, self.TD_TOTAL_ROWS_CHECK_PERIOD // self.beat_duration
         )
 
     def _query_total_rows(self) -> int:
