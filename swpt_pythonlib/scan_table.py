@@ -125,17 +125,75 @@ class _TableReader:
 class _Rhythm:
     """A helper class to maintain a constant scanning rhythm."""
 
+    TOTAL_ROWS_QUERY = text(
+        "SELECT reltuples::bigint"
+        " FROM pg_catalog.pg_class"
+        " WHERE relname = :tablename"
+    )
     TD_ZERO = timedelta(seconds=0)
     TD_MIN_SLEEPTIME = timedelta(milliseconds=10)
+    BEATS_BEFORE_TOTAL_ROWS_CHECK = 10000
 
-    def __init__(self, completion_goal: timedelta, number_of_beats: int):
+    def __init__(
+            self,
+            connection: Connection,
+            tablename: str,
+            completion_goal: timedelta,
+            target_beat_duration: int,
+    ):
         assert completion_goal > self.TD_ZERO
-        assert number_of_beats >= 1
-        current_ts = datetime.now(tz=timezone.utc)
-        self.beat_duration = completion_goal / number_of_beats
-        self.last_beat_ended_at = current_ts
-        self.rhythm_ends_at = current_ts + completion_goal
+        assert target_beat_duration > 0
+        self.connection = connection
+        self.tablename = tablename
+        self.completion_goal = completion_goal
+        self.target_beat_duration = target_beat_duration
+        self.total_rows = self._query_total_rows()
+        self.rows_per_beat = self._calc_rows_per_beat()
+        self.number_of_beats = self._calc_number_of_beats()
+        self.beat_duration = self.completion_goal / self.number_of_beats
+        self.last_beat_ended_at = datetime.now(tz=timezone.utc)
+        self.rhythm_ends_at = self.last_beat_ended_at + completion_goal
         self.extra_time = self.TD_ZERO
+        self.registered_beats = 0
+
+    def _query_total_rows(self) -> int:
+        connection = self.connection
+        with connection.begin():
+            total_rows = (
+                connection.execute(
+                    self.TOTAL_ROWS_QUERY, {"tablename": self.tablename}
+                )
+                .scalar()
+            )
+
+        if total_rows is None:
+            raise RuntimeError(f'The table "{tablename}" does not exist.')
+
+        if total_rows < 0:
+            # PostgreSQL's docs say that this may happen if the table
+            # has never yet been vacuumed or analyzed.
+            total_rows = 0
+
+        return total_rows
+
+    def _calc_rows_per_beat(self) -> int:
+        target_duration = timedelta(milliseconds=self.target_beat_duration)
+        target_beats_count = max(1, self.completion_goal // target_duration)
+
+        # The maximum number of bound parameters in PostgreSQL is
+        # limited to 32000. Therefore, we want the number of rows per
+        # beat to be much smaller than this number. Here we set a
+        # maximum of 5000, which seems reasonable. The minimum is set
+        # to 10 which ensures that we always enjoy some performance
+        # benefits from batching.
+        return min(max(10, ceil(self.total_rows / target_beats_count)), 5000)
+
+    def _calc_number_of_beats(self) -> int:
+        # We want every rhythm to have at least 5 beats. This ensures
+        # that an additional beat at the end (which is highly likely)
+        # will not change significantly the total duration of the
+        # rhythm.
+        return max(5, ceil(self.total_rows / self.rows_per_beat))
 
     def _register_elapsed_time(self) -> timedelta:
         current_ts = datetime.now(tz=timezone.utc)
@@ -144,6 +202,7 @@ class _Rhythm:
         return elapsed_time
 
     def register_beat(self):
+        self.registered_beats += 1
         self.extra_time += self.beat_duration - self._register_elapsed_time()
         if self.extra_time > self.TD_MIN_SLEEPTIME:
             time.sleep(self.extra_time.total_seconds())
@@ -151,7 +210,21 @@ class _Rhythm:
 
     @property
     def has_ended(self) -> bool:
-        return self.last_beat_ended_at >= self.rhythm_ends_at
+        if self.last_beat_ended_at >= self.rhythm_ends_at:
+            return True
+
+        if self.registered_beats >= self.BEATS_BEFORE_TOTAL_ROWS_CHECK:
+            self.registered_beats = 0
+
+            # End the rhythm if the total number of rows in the table
+            # has changed significantly. Here `n` represents a number
+            # of rows that is small enough so as not to significantly
+            # change the size of the table.
+            n = self.BEATS_BEFORE_TOTAL_ROWS_CHECK * self.rows_per_beat
+            ratio = (self._query_total_rows() + n) / (self.total_rows + n)
+            return not 0.8 < ratio < 1.25
+
+        return False
 
 
 class TableScanner:
@@ -172,12 +245,6 @@ class TableScanner:
                   print(row['id'], row['last_order_date'])
 
     """
-
-    TOTAL_ROWS_QUERY = text(
-        "SELECT reltuples::bigint"
-        " FROM pg_catalog.pg_class"
-        " WHERE relname = :tablename"
-    )
 
     table: Optional[Table] = None
     """The :class:`sqlalchemy.schema.Table` that will be scanned.
@@ -208,33 +275,6 @@ class TableScanner:
     this interval. Setting this value too high may have the effect of
     too many rows being processed simultaneously in one beat.
     """
-
-    def __create_rhythm(
-        self,
-        total_rows: float,
-        completion_goal: timedelta,
-    ) -> Tuple[_Rhythm, int]:
-        assert total_rows >= 0.0
-        assert self.target_beat_duration > 0
-        target_duration = timedelta(milliseconds=self.target_beat_duration)
-        target_number_of_beats = max(1, completion_goal // target_duration)
-
-        # The maximum number of bound parameters in PostgreSQL is
-        # limited to 32000. Therefore, we want the number of rows per
-        # beat to be much smaller than this number. Here we set a
-        # maximum of 5000, which seems reasonable. The minimum is set
-        # to 10 which ensures that we always enjoy some performance
-        # benefits from batching.
-        rows_per_beat = min(
-            max(10, ceil(total_rows / target_number_of_beats)), 5000
-        )
-        # We want every rhythm to have at least 5 beats. This ensures
-        # that an additional beat at the end (which is highly likely)
-        # will not change significantly the total duration of the
-        # rhythm.
-        number_of_beats = max(5, ceil(total_rows / rows_per_beat))
-
-        return _Rhythm(completion_goal, number_of_beats), rows_per_beat
 
     def run(
         self,
@@ -277,32 +317,18 @@ class TableScanner:
             self.blocks_per_query,
             self.columns,
         )
-        tablename = self.table.name
         scans_counter = 0
 
         while True:
             scans_counter += 1
-
-            with connection.begin():
-                total_rows = (
-                    connection.execute(
-                        self.TOTAL_ROWS_QUERY, {"tablename": tablename}
-                    )
-                    .scalar()
-                )
-            if total_rows is None:
-                raise RuntimeError(f'The table "{tablename}" does not exist.')
-
-            if total_rows < 0.0:
-                # PostgreSQL's docs say that this may happen if the
-                # table has never yet been vacuumed or analyzed.
-                total_rows = 0.0
-
-            rhythm, rows_per_beat = self.__create_rhythm(
-                total_rows, completion_goal
+            rhythm = _Rhythm(
+                connection,
+                self.table.name,
+                completion_goal,
+                self.target_beat_duration,
             )
             while not rhythm.has_ended:
-                rows = reader.read_rows(count=rows_per_beat)
+                rows = reader.read_rows(count=rhythm.rows_per_beat)
                 if rows:
                     self.process_rows(rows)
                 rhythm.register_beat()
