@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.11.1
+--------------
+
+- In `TableScanner`, update the rhythm when the size of the table
+  changes significantly.
+
+
 0.11.0
 --------------
 
