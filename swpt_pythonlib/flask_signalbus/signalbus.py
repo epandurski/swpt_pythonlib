@@ -1,5 +1,4 @@
 import logging
-import random
 import flask_sqlalchemy as fsa
 import sqlalchemy.orm as sa_orm
 from sqlalchemy import select
@@ -34,6 +33,12 @@ class SignalBus:
     in the SQL database, over a message bus. The sending of the recorded
     messages should be triggered explicitly by a function call.
     """
+
+    # NOTE: This command ensures that even when sequential scans have
+    # been globally disabled, the server-side cursor that we create to
+    # read the table will be allowed to use a sequential scan. We know
+    # this is always the best execution plan for this cursor.
+    SET_SEQSCAN_ON = text("SET LOCAL enable_seqscan = on")
 
     def __init__(self, db: fsa.SQLAlchemy):
         self.db = db
@@ -119,6 +124,7 @@ class SignalBus:
             for c in mapper.primary_key
         ]
         with self.db.engine.connect() as conn:
+            conn.execute(self.SET_SEQSCAN_ON)
             with conn.execution_options(yield_per=burst_count).execute(
                 select(*pk_attrs)
             ) as result:
@@ -126,25 +132,10 @@ class SignalBus:
                 session = self.db.session
                 query = (
                     session.query(model_cls)
-                    .execution_options(compiled_cache=None)
                     .with_for_update(skip_locked=True)
                 )
                 for primary_keys in result.partitions():
-                    random_string = str(random.randint(1, 1000000000))
-                    signals = (
-                        # We want to be sure that this query will not
-                        # be prepared, because the cached plan may
-                        # become very inefficient as the table grows
-                        # and shrinks. To achieve this, we include a
-                        # random string in the query. (Note: psycopg3
-                        # will automatically prepare statements that
-                        # have occurred a few times.)
-                        query.filter(
-                            pk.in_(primary_keys),
-                            text(f"'{random_string}' IS NOT NULL"),
-                        )
-                        .all()
-                    )
+                    signals = query.filter(pk.in_(primary_keys)).all()
                     sent_count += self._send_and_delete(model_cls, signals)
                     session.commit()
                     session.expunge_all()
