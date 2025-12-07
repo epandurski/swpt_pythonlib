@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.11.2
+--------------
+
+- Change the way `flask_signalbus` creates the server-side cursor.
+  Now, `SET LOCAL enable_seqscan = on` will be send before the cursor
+  is created. Also, the random string added to the "select for update"
+  query has been removed.
+
+
 0.11.1
 --------------
 

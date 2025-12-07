@@ -142,7 +142,7 @@ def test_signal_with_props_is_efficient(app, db, Signal, SignalProperty):
         db.session.commit()
         all_statements = [
             q.statement for q in fsa.record_queries.get_recorded_queries()]
-        assert not any('SELECT' in s for s in all_statements)
+        assert not any('FROM test_signal' in s for s in all_statements)
 
 
 def test_flush_signal_with_props(

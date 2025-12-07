@@ -1,7 +1,7 @@
 import flask
 import pytest
 from sqlalchemy.engine import Engine
-from sqlalchemy import event
+from sqlalchemy import event, text
 import flask_sqlalchemy as fsa
 import swpt_pythonlib.flask_signalbus as fsb
 from mock import Mock
@@ -61,6 +61,11 @@ def atomic_db(app):
 
 @pytest.fixture
 def signalbus(app, db):
+    # During testing, change the SET_SEQSCAN_ON command to something
+    # that SQLite understands. The original value of SET_SEQSCAN_ON is
+    # specific to PostgreSQL, and would fail on SQLite.
+    db.signalbus.SET_SEQSCAN_ON = text('PRAGMA shrink_memory')
+
     return db.signalbus
 
 
@@ -109,6 +114,7 @@ def Signal(db, send_mock):
 
     db.create_all()
     yield Signal
+    db.session.remove()
     db.drop_all()
 
 
@@ -131,6 +137,7 @@ def SignalSendMany(db, send_mock):
 
     db.create_all()
     yield SignalSendMany
+    db.session.remove()
     db.drop_all()
 
 
@@ -147,6 +154,7 @@ def SignalProperty(db, send_mock, Signal):
 
     db.create_all()
     yield SignalProperty
+    db.session.remove()
     db.drop_all()
 
 
@@ -158,6 +166,7 @@ def NonSignal(db):
 
     db.create_all()
     yield NonSignal
+    db.session.remove()
     db.drop_all()
 
 
@@ -173,4 +182,5 @@ def AtomicModel(atomic_db):
 
     db.create_all()
     yield AtomicModel
+    db.session.remove()
     db.drop_all()
