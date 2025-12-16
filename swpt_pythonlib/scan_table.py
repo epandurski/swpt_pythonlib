@@ -1,7 +1,7 @@
 import logging
 from typing import List, Tuple, Optional, Sequence
 from collections import deque
-from sqlalchemy import select, text
+from sqlalchemy import select, text, literal_column
 from sqlalchemy.schema import Table
 from sqlalchemy.engine import Connectable, Engine, Connection, RowMapping
 from sqlalchemy.sql.expression import ColumnElement
@@ -25,6 +25,11 @@ class _TableReader:
         "SELECT"
         " pg_relation_size(:tablename) / current_setting('block_size')::int"
     )
+    BLOCK_NUMBER_COLUMN = (
+        literal_column("(ctid::text::point)[0]::int")
+        .label("block_number")
+    )
+    CTID_COLUMN = literal_column("ctid")
 
     def __init__(
         self,
@@ -33,6 +38,7 @@ class _TableReader:
         table: Table,
         blocks_per_query: int,
         columns: Optional[List[ColumnElement]] = None,
+        order_by_block: bool = False,
     ):
         assert isinstance(connection, Connection)
         assert blocks_per_query >= 1
@@ -40,13 +46,21 @@ class _TableReader:
         self.logger = logging.getLogger(__name__)
         self.connection = connection
         self.table = table
+        self.order_by_block = order_by_block
         self.last_block_query_params = {"tablename": table.name}
-        self.table_query = select(*(columns or table.columns))
         self.tid_range_query_execution_options = {"compiled_cache": None}
         self.blocks_per_query = blocks_per_query
         self.current_block = -1
         self.fast_forward_mode = False
         self.queue: deque = deque()
+
+        if order_by_block:
+            self.table_query = (
+                select(*(columns or table.columns), self.BLOCK_NUMBER_COLUMN)
+                .order_by(self.CTID_COLUMN)
+            )
+        else:
+            self.table_query = select(*(columns or table.columns))
 
     def _ensure_valid_current_block(self) -> None:
         last_block = (
@@ -91,7 +105,8 @@ class _TableReader:
             if len(rows) == 0:
                 # Maybe we have reached the end of the table? If not,
                 # we probably are traversing a sequence of empty
-                # pages, so we switch to fast-forward mode (2x speed).
+                # blocks, so we switch to fast-forward mode (2x
+                # speed).
                 self._ensure_valid_current_block()
                 self.fast_forward_mode = True
             else:
@@ -99,8 +114,14 @@ class _TableReader:
 
             return rows
 
-    def read_rows(self, count: int) -> list[RowMapping]:
-        """Return a list of at most `count` rows."""
+    def read_rows(self, count: Optional[int]) -> list[RowMapping]:
+        """Return a list of at most `count` rows.
+
+        If `count` is None, returns the rows in the next page (block).
+        """
+
+        if count is None:
+            return self.read_block()
 
         rows = []
         while len(self.queue) < count:
@@ -122,17 +143,47 @@ class _TableReader:
         return rows
 
 
-class _Rhythm:
-    """A helper class to maintain a constant scanning rhythm."""
+    def read_block(self) -> list[RowMapping]:
+        """Return a whole page (block) of rows."""
 
-    TOTAL_ROWS_QUERY = text(
-        "SELECT reltuples::bigint"
-        " FROM pg_catalog.pg_class"
-        " WHERE relname = :tablename"
-    )
+        if not self.order_by_block:
+            raise RuntimeError(
+                'Called read_block() on a reader that does not support it.'
+            )
+
+        block_number = None
+        rows = []
+        while len(self.queue) == 0:
+            try:
+                self.queue.extend(self._advance_current_block())
+            except self.EndOfTableError:
+                self.current_block = 0
+                self.logger.info(
+                    "%s reached the end of the table", self.reader_id
+                )
+                break
+
+        while True:
+            try:
+                row = self.queue[0]
+            except IndexError:
+                break
+
+            if block_number is None:
+               block_number = row["block_number"]
+            elif block_number != row["block_number"]:
+                break
+            rows.append(self.queue.popleft())
+
+        return rows
+
+
+class _AbstractRhythm:
+    """An abstract class for maintaining a constant scanning rhythm."""
+
     TD_ZERO = timedelta(seconds=0)
     TD_MIN_SLEEPTIME = timedelta(milliseconds=10)
-    TD_TOTAL_ROWS_CHECK_PERIOD = timedelta(minutes=15.0)
+    TD_TOTAL_ITEMS_CHECK_PERIOD = timedelta(minutes=15.0)
 
     def __init__(
             self,
@@ -147,56 +198,30 @@ class _Rhythm:
         self.tablename = tablename
         self.completion_goal = completion_goal
         self.target_beat_duration = target_beat_duration
-        self.total_rows = self._query_total_rows()
-        self.rows_per_beat = self._calc_rows_per_beat()
+        self.total_items = self._query_total_items()
+        self.items_per_beat = self._calc_items_per_beat()
         self.number_of_beats = self._calc_number_of_beats()
         self.beat_duration = self.completion_goal / self.number_of_beats
         self.last_beat_ended_at = datetime.now(tz=timezone.utc)
         self.rhythm_ends_at = self.last_beat_ended_at + completion_goal
         self.extra_time = self.TD_ZERO
         self.registered_beats = 0
-        self.beats_before_total_rows_check = max(
-            1, self.TD_TOTAL_ROWS_CHECK_PERIOD // self.beat_duration
+        self.beats_before_total_items_check = max(
+            1, self.TD_TOTAL_ITEMS_CHECK_PERIOD // self.beat_duration
         )
 
-    def _query_total_rows(self) -> int:
-        connection = self.connection
-        with connection.begin():
-            total_rows = (
-                connection.execute(
-                    self.TOTAL_ROWS_QUERY, {"tablename": self.tablename}
-                )
-                .scalar()
-            )
+    def _query_total_items(self) -> int:
+        raise NotImplementedError()
 
-        if total_rows is None:
-            raise RuntimeError(f'The table "{tablename}" does not exist.')
-
-        if total_rows < 0:
-            # PostgreSQL's docs say that this may happen if the table
-            # has never yet been vacuumed or analyzed.
-            total_rows = 0
-
-        return total_rows
-
-    def _calc_rows_per_beat(self) -> int:
-        target_duration = timedelta(milliseconds=self.target_beat_duration)
-        target_beats_count = max(1, self.completion_goal // target_duration)
-
-        # The maximum number of bound parameters in PostgreSQL is
-        # limited to 32000. Therefore, we want the number of rows per
-        # beat to be much smaller than this number. Here we set a
-        # maximum of 5000, which seems reasonable. The minimum is set
-        # to 10 which ensures that we always enjoy some performance
-        # benefits from batching.
-        return min(max(10, ceil(self.total_rows / target_beats_count)), 5000)
+    def _calc_items_per_beat(self) -> int:
+        raise NotImplementedError()
 
     def _calc_number_of_beats(self) -> int:
         # We want every rhythm to have at least 5 beats. This ensures
         # that an additional beat at the end (which is highly likely)
         # will not change significantly the total duration of the
         # rhythm.
-        return max(5, ceil(self.total_rows / self.rows_per_beat))
+        return max(5, ceil(self.total_items / self.items_per_beat))
 
     def _register_elapsed_time(self) -> timedelta:
         current_ts = datetime.now(tz=timezone.utc)
@@ -216,18 +241,103 @@ class _Rhythm:
         if self.last_beat_ended_at >= self.rhythm_ends_at:
             return True
 
-        if self.registered_beats >= self.beats_before_total_rows_check:
+        if self.registered_beats >= self.beats_before_total_items_check:
             self.registered_beats = 0
 
-            # End the rhythm if the total number of rows in the table
+            # End the rhythm if the total number of items in the table
             # has changed significantly. Here `n` represents a number
-            # of rows that is small enough so as not to significantly
+            # of items that is small enough so as not to significantly
             # change the size of the table.
-            n = self.beats_before_total_rows_check * self.rows_per_beat
-            ratio = (self._query_total_rows() + n) / (self.total_rows + n)
+            n = self.beats_before_total_items_check * self.items_per_beat
+            ratio = (self._query_total_items() + n) / (self.total_items + n)
             return not 0.8 < ratio < 1.25
 
         return False
+
+    @property
+    def rows_per_beat(self) -> Optional[int]:
+        raise NotImplementedError()
+
+
+class _BlocksRhythm(_AbstractRhythm):
+    """A helper class to maintain a constant rhythm for scanning pages
+    (blocks).
+    """
+
+    TOTAL_BLOCKS_QUERY = text(
+        "SELECT relpages::bigint"
+        " FROM pg_catalog.pg_class"
+        " WHERE relname = :tablename"
+    )
+
+    def _query_total_items(self) -> int:
+        connection = self.connection
+        with connection.begin():
+            total_blocks = (
+                connection.execute(
+                    self.TOTAL_BLOCKS_QUERY, {"tablename": self.tablename}
+                )
+                .scalar()
+            )
+
+        if total_blocks is None:
+            raise RuntimeError(f'The table "{tablename}" does not exist.')
+
+        assert total_blocks >= 0
+        return total_blocks
+
+    def _calc_items_per_beat(self) -> int:
+        return 1
+
+    @property
+    def rows_per_beat(self) -> Optional[int]:
+        return None
+
+
+class _RowsRhythm(_AbstractRhythm):
+    """A helper class to maintain a constant rhythm for scanning rows."""
+
+    TOTAL_ROWS_QUERY = text(
+        "SELECT reltuples::bigint"
+        " FROM pg_catalog.pg_class"
+        " WHERE relname = :tablename"
+    )
+
+    def _query_total_items(self) -> int:
+        connection = self.connection
+        with connection.begin():
+            total_rows = (
+                connection.execute(
+                    self.TOTAL_ROWS_QUERY, {"tablename": self.tablename}
+                )
+                .scalar()
+            )
+
+        if total_rows is None:
+            raise RuntimeError(f'The table "{tablename}" does not exist.')
+
+        if total_rows < 0:
+            # PostgreSQL's docs say that this may happen if the table
+            # has never yet been vacuumed or analyzed.
+            total_rows = 0
+
+        return total_rows
+
+    def _calc_items_per_beat(self) -> int:
+        target_duration = timedelta(milliseconds=self.target_beat_duration)
+        target_beats_count = max(1, self.completion_goal // target_duration)
+
+        # The maximum number of bound parameters in PostgreSQL is
+        # limited to 32000. Therefore, we want the number of rows per
+        # beat to be much smaller than this number. Here we set a
+        # maximum of 5000, which seems reasonable. The minimum is set
+        # to 10 which ensures that we always enjoy some performance
+        # benefits from batching.
+        return min(max(10, ceil(self.total_items / target_beats_count)), 5000)
+
+    @property
+    def rows_per_beat(self) -> Optional[int]:
+        return self.items_per_beat
 
 
 class TableScanner:
@@ -279,6 +389,12 @@ class TableScanner:
     too many rows being processed simultaneously in one beat.
     """
 
+    process_individual_blocks: bool = False
+    """An alternative mode of operation is to call the `process_rows`
+    method separately for each non-empty page (block) in the table.
+    Setting this to `True` will activate this mode of operation.
+    """
+
     def run(
         self,
         engine: Connectable,
@@ -312,19 +428,22 @@ class TableScanner:
         assert self.table is not None, (
             '"table" must be defined in the subclass.'
         )
-        reader_id = "<{} at 0x{:x}>".format(type(self).__name__, id(self))
         reader = _TableReader(
-            reader_id,
-            connection,
-            self.table,
-            self.blocks_per_query,
-            self.columns,
+            reader_id="<{} at 0x{:x}>".format(type(self).__name__, id(self)),
+            connection=connection,
+            table=self.table,
+            blocks_per_query=self.blocks_per_query,
+            columns=self.columns,
+            order_by_block=self.process_individual_blocks,
+        )
+        rhythm_class = (
+            _BlocksRhythm if self.process_individual_blocks else _RowsRhythm
         )
         scans_counter = 0
 
         while True:
             scans_counter += 1
-            rhythm = _Rhythm(
+            rhythm = rhythm_class(
                 connection,
                 self.table.name,
                 completion_goal,
@@ -336,10 +455,10 @@ class TableScanner:
                     self.process_rows(rows)
                 rhythm.register_beat()
 
-            if quit_early and scans_counter > 10:  # pragma: no cover
+            if quit_early and scans_counter > 10:
                 break
 
-    def process_rows(self, rows: list) -> None:  # pragma: no cover
+    def process_rows(self, rows: list) -> None:
         """Process a list or rows.
 
         **Must be defined in the subclass.**

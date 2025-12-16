@@ -14,7 +14,7 @@ def user_table():
         'user_table', metadata,
         Column('user_id', Integer, primary_key=True),
         Column('user_name', String(16), nullable=False),
-        Column('email_address', String(60)),
+        Column('email_address', String(2000)),
     )
     return user_table
 
@@ -29,7 +29,7 @@ def engine(user_table):
         stmt = user_table.insert().values(
             user_id=i,
             user_name=f'user_{i}',
-            email_address='user_{i}@example.com',
+            email_address=f'user_{i}@{1900 * "x"}.com',
         )
         with connection.begin():
             connection.execute(stmt)
@@ -53,6 +53,32 @@ def test_table_reader(user_table, engine, caplog):
 
 
 @pytest.mark.skip(reason="PostgeSQL is required")
+def test_table_reader_read_block(user_table, engine, caplog):
+    caplog.set_level(logging.INFO)
+    connection = engine.connect()
+    reader = _TableReader('TestReader', connection, user_table, 40,
+                          [user_table.c.user_id, user_table.c.user_name],
+                          order_by_block=True)
+    rows = []
+    blocks_count = 0
+    previous_block_number = -1
+    while len(rows) < 100:
+        block_rows = reader.read_block()
+        blocks_count += 1
+        if block_rows:
+            block_number = block_rows[0]['block_number']
+            assert block_number != previous_block_number
+            assert all(block_number == r['block_number'] for r in block_rows)
+            previous_block_number = block_number
+        rows.extend(block_rows)
+    assert blocks_count > 10
+    assert len({r['user_id'] for r in rows}) == 10
+    assert hasattr(rows[0], 'user_name')
+    assert not hasattr(rows[0], 'email_address')
+    assert 'TestReader reached the end of the table' in caplog.text
+
+
+@pytest.mark.skip(reason="PostgeSQL is required")
 def test_user_scanner(user_table, engine):
     class ProcessError(Exception):
         pass
@@ -65,6 +91,32 @@ def test_user_scanner(user_table, engine):
             self.count = 0
 
         def process_rows(self, rows):
+            self.count += len(rows)
+            if self.count > 30:
+                raise ProcessError()
+
+    scanner = UserScanner()
+    with pytest.raises(ProcessError):
+        scanner.run(engine, timedelta(seconds=0.5))
+    assert scanner.count > 30
+
+
+@pytest.mark.skip(reason="PostgeSQL is required")
+def test_user_scanner_blocks(user_table, engine):
+    class ProcessError(Exception):
+        pass
+
+    class UserScanner(TableScanner):
+        table = user_table
+        columns = [table.c.user_id, table.c.user_name]
+        process_individual_blocks = True
+
+        def __init__(self):
+            self.count = 0
+
+        def process_rows(self, rows):
+            block_number = rows[0]["block_number"]
+            assert all(block_number == r["block_number"] for r in rows)
             self.count += len(rows)
             if self.count > 30:
                 raise ProcessError()
