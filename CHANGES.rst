@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.11.3
+--------------
+
+- Added `process_individual_blocks` property to `TableScanner`s. It
+  implements an alternative mode of operation, which is to call the
+  `process_rows` method separately for each non-empty page (block) in
+  the table.
+
+
 0.11.2
 --------------
 
