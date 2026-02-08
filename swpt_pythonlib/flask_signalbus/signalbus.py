@@ -130,12 +130,17 @@ class SignalBus:
             ) as result:
                 pk = tuple_(*pk_attrs)
                 session = self.db.session
-                query = (
-                    session.query(model_cls)
-                    .with_for_update(skip_locked=True)
-                )
+                q = session.query(model_cls).with_for_update(skip_locked=True)
+                if hasattr(model_cls, "choose_rows"):
+                    def _query_signals(pks):
+                        chosen = model_cls.choose_rows([tuple(x) for x in pks])
+                        return q.join(chosen, pk == tuple_(*chosen.c)).all()
+                else:
+                    def _query_signals(pks):
+                        return q.filter(pk.in_(pks)).all()
+
                 for primary_keys in result.partitions():
-                    signals = query.filter(pk.in_(primary_keys)).all()
+                    signals = _query_signals(primary_keys)
                     sent_count += self._send_and_delete(model_cls, signals)
                     session.commit()
                     session.expunge_all()

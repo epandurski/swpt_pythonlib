@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.11.4
+--------------
+
+- Allow more efficient row selection in `flask_signalbus`. Now if the
+  signal class has defined a special classmethod named "choose_rows",
+  instead of a "select-in" query, a "with-query" join will be used for
+  selecting rows.
+
+
 0.11.3
 --------------
 
