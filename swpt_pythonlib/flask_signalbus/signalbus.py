@@ -77,7 +77,7 @@ class SignalBus:
                 _raise_error_if_not_signal_model(model)
                 sent_count += self._flushmany_signals_with_retry(model)
         finally:
-            self.db.session.remove()
+            self.db.session.close()
 
         return sent_count
 
