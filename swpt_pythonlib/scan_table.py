@@ -170,7 +170,7 @@ class _TableReader:
                 break
 
             if block_number is None:
-               block_number = row["block_number"]
+                block_number = row["block_number"]
             elif block_number != row["block_number"]:
                 break
             rows.append(self.queue.popleft())
@@ -281,7 +281,7 @@ class _BlocksRhythm(_AbstractRhythm):
             )
 
         if total_blocks is None:
-            raise RuntimeError(f'The table "{tablename}" does not exist.')
+            raise RuntimeError(f'The table "{self.tablename}" does not exist.')
 
         assert total_blocks >= 0
         return total_blocks
