@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.11.6
+--------------
+
+- In `flask_signalbus`, when the "choose_rows" classmethod is defined,
+  always use bitmap scans for row selection.
+
+
 0.11.5
 --------------
 

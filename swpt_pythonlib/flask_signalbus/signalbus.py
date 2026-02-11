@@ -34,11 +34,10 @@ class SignalBus:
     messages should be triggered explicitly by a function call.
     """
 
-    # NOTE: This command ensures that even when sequential scans have
-    # been globally disabled, the server-side cursor that we create to
-    # read the table will be allowed to use a sequential scan. We know
-    # this is always the best execution plan for this cursor.
     SET_SEQSCAN_ON = text("SET LOCAL enable_seqscan = on")
+    SET_SEQSCAN_OFF = text("SET LOCAL enable_seqscan = off")
+    SET_INDEXSCAN_ON = text("SET LOCAL enable_indexscan = on")
+    SET_INDEXSCAN_OFF = text("SET LOCAL enable_indexscan = off")
 
     def __init__(self, db: fsa.SQLAlchemy):
         self.db = db
@@ -134,7 +133,19 @@ class SignalBus:
                 if hasattr(model_cls, "choose_rows"):
                     def _query_signals(pks):
                         chosen = model_cls.choose_rows([tuple(x) for x in pks])
-                        return q.join(chosen, pk == tuple_(*chosen.c)).all()
+
+                        # NOTE: By disabling sequential and index
+                        # scans here, the planner is forced to use a
+                        # bitmap scan. This can be a bit slower, but
+                        # is the safe bet for generic plans. It
+                        # prevents the use of a full sequential or
+                        # index scan when, at the time of planning,
+                        # the table is small.
+                        session.execute(self.SET_SEQSCAN_OFF)
+                        session.execute(self.SET_INDEXSCAN_OFF)
+                        result = q.join(chosen, pk == tuple_(*chosen.c)).all()
+                        session.execute(self.SET_INDEXSCAN_ON)
+                        return result
                 else:
                     def _query_signals(pks):
                         return q.filter(pk.in_(pks)).all()
