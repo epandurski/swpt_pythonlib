@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.11.7
+--------------
+
+- In `flask_signalbus`, when the "choose_rows" classmethod is defined,
+  always use nested joins for row selection.
+
+
 0.11.6
 --------------
 

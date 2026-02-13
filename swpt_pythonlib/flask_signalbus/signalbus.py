@@ -36,8 +36,8 @@ class SignalBus:
 
     SET_SEQSCAN_ON = text("SET LOCAL enable_seqscan = on")
     SET_SEQSCAN_OFF = text("SET LOCAL enable_seqscan = off")
-    SET_INDEXSCAN_ON = text("SET LOCAL enable_indexscan = on")
-    SET_INDEXSCAN_OFF = text("SET LOCAL enable_indexscan = off")
+    SET_HASHJOIN_OFF = text("SET LOCAL enable_hashjoin = off")
+    SET_MERGEJOIN_OFF = text("SET LOCAL enable_mergejoin = off")
 
     def __init__(self, db: fsa.SQLAlchemy):
         self.db = db
@@ -142,9 +142,9 @@ class SignalBus:
                         # index scan when, at the time of planning,
                         # the table is small.
                         session.execute(self.SET_SEQSCAN_OFF)
-                        session.execute(self.SET_INDEXSCAN_OFF)
+                        session.execute(self.SET_HASHJOIN_OFF)
+                        session.execute(self.SET_MERGEJOIN_OFF)
                         result = q.join(chosen, pk == tuple_(*chosen.c)).all()
-                        session.execute(self.SET_INDEXSCAN_ON)
                         return result
                 else:
                     def _query_signals(pks):
