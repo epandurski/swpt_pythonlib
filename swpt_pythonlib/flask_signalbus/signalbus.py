@@ -35,9 +35,8 @@ class SignalBus:
     """
 
     SET_SEQSCAN_ON = text("SET LOCAL enable_seqscan = on")
-    SET_SEQSCAN_OFF = text("SET LOCAL enable_seqscan = off")
-    SET_HASHJOIN_OFF = text("SET LOCAL enable_hashjoin = off")
-    SET_MERGEJOIN_OFF = text("SET LOCAL enable_mergejoin = off")
+    SET_FORCE_CUSTOM_PLAN = text("SET LOCAL plan_cache_mode = force_custom_plan")
+    SET_DEFAULT_PLAN_CACHE_MODE = text("SET LOCAL plan_cache_mode = DEFAULT")
 
     def __init__(self, db: fsa.SQLAlchemy):
         self.db = db
@@ -133,25 +132,15 @@ class SignalBus:
                 if hasattr(model_cls, "choose_rows"):
                     def _query_signals(pks):
                         chosen = model_cls.choose_rows([tuple(x) for x in pks])
-
-                        # NOTE: By disabling sequential and index
-                        # scans here, the planner is forced to use a
-                        # bitmap scan. This can be a bit slower, but
-                        # is the safe bet for generic plans. It
-                        # prevents the use of a full sequential or
-                        # index scan when, at the time of planning,
-                        # the table is small.
-                        session.execute(self.SET_SEQSCAN_OFF)
-                        session.execute(self.SET_HASHJOIN_OFF)
-                        session.execute(self.SET_MERGEJOIN_OFF)
-                        result = q.join(chosen, pk == tuple_(*chosen.c)).all()
-                        return result
+                        return q.join(chosen, pk == tuple_(*chosen.c)).all()
                 else:
                     def _query_signals(pks):
                         return q.filter(pk.in_(pks)).all()
 
                 for primary_keys in result.partitions():
+                    session.execute(self.SET_FORCE_CUSTOM_PLAN)
                     signals = _query_signals(primary_keys)
+                    session.execute(self.SET_DEFAULT_PLAN_CACHE_MODE)
                     sent_count += self._send_and_delete(model_cls, signals)
                     session.commit()
                     session.expunge_all()

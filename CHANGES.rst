@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.11.8
+--------------
+
+- In `flask_signalbus`, when the "choose_rows" classmethod is defined,
+  always force custom plan.
+
+
 0.11.7
 --------------
 
