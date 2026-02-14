@@ -65,6 +65,8 @@ def signalbus(app, db):
     # that SQLite understands. The original value of SET_SEQSCAN_ON is
     # specific to PostgreSQL, and would fail on SQLite.
     db.signalbus.SET_SEQSCAN_ON = text('PRAGMA shrink_memory')
+    db.signalbus.SET_FORCE_CUSTOM_PLAN = text('PRAGMA shrink_memory')
+    db.signalbus.SET_DEFAULT_PLAN_CACHE_MODE = text('PRAGMA shrink_memory')
 
     return db.signalbus
 
