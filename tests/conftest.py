@@ -68,6 +68,7 @@ def signalbus(app, db):
     db.signalbus.SET_FORCE_CUSTOM_PLAN = text('PRAGMA shrink_memory')
     db.signalbus.SET_DEFAULT_PLAN_CACHE_MODE = text('PRAGMA shrink_memory')
     db.signalbus.SET_STATISTICS_TARGET = text('PRAGMA shrink_memory')
+    db.signalbus._analyze_table = lambda _: None
 
     return db.signalbus
 
