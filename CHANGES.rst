@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.11.10
+--------------
+
+- In `flask_signalbus`, run `ANALYZE (SKIP_LOCKED) table` before
+  starting to flush a table.
+
+
 0.11.9
 --------------
 
