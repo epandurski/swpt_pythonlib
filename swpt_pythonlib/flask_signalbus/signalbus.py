@@ -37,6 +37,7 @@ class SignalBus:
     SET_SEQSCAN_ON = text("SET LOCAL enable_seqscan = on")
     SET_FORCE_CUSTOM_PLAN = text("SET LOCAL plan_cache_mode = force_custom_plan")
     SET_DEFAULT_PLAN_CACHE_MODE = text("SET LOCAL plan_cache_mode = DEFAULT")
+    SET_STATISTICS_TARGET = text("SET LOCAL default_statistics_target = 1")
 
     def __init__(self, db: fsa.SQLAlchemy):
         self.db = db
@@ -110,6 +111,15 @@ class SignalBus:
 
         return n
 
+    def _analyze_table(self, model_cls: type[Model]) -> None:
+        session = self.db.session
+        session.execute(self.SET_STATISTICS_TARGET)
+        session.execute(
+            text(f"ANALYZE (SKIP_LOCKED) {model_cls.__table__.name}"),
+            execution_options={"compiled_cache": None},
+        )
+        session.commit()
+
     def _flushmany_signals(self, model_cls: type[Model]) -> int:
         logger = logging.getLogger(__name__)
         logger.info("Flushing %s.", model_cls.__name__)
@@ -126,9 +136,11 @@ class SignalBus:
             with conn.execution_options(yield_per=burst_count).execute(
                 select(*pk_attrs)
             ) as result:
+                self._analyze_table(model_cls)
                 pk = tuple_(*pk_attrs)
                 session = self.db.session
                 q = session.query(model_cls).with_for_update(skip_locked=True)
+
                 if hasattr(model_cls, "choose_rows"):
                     def _query_signals(pks):
                         chosen = model_cls.choose_rows([tuple(x) for x in pks])
