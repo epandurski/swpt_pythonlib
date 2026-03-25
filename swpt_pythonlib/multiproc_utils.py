@@ -199,3 +199,6 @@ def spawn_worker_processes(processes: int, target, **kwargs):
                 )
                 terminate_worker_processes()
                 break
+
+    for p in worker_processes:
+        p.join()

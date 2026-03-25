@@ -1,6 +1,18 @@
 Changelog
 =========
 
+0.12.1
+--------------
+
+- Fixed bug in `rabbitmq.Consumer`. The consumer was not joining the
+  worker threads when a connection closed exception (or any other
+  exception really) is has been thrown during the consumption. The
+  result was that the process did not exit because of the remaining
+  running threads.
+- Fixed bug in `multiproc_utils.spawn_worker_processes`. The function
+  was not guaranteed to join all spawn processes all possible cases.
+
+
 0.12.0
 --------------
 
