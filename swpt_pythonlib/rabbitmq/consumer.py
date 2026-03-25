@@ -217,10 +217,11 @@ class Consumer:
         channel = self._connection.channel()
         channel.basic_qos(self.prefetch_size, self.prefetch_count)
         workers = [_WorkerThread(self) for _ in range(self.threads)]
-        for worker in workers:
-            worker.start()
 
         try:
+            for worker in workers:
+                worker.start()
+
             while not self._stopped:
                 inactivity_counter = 0
 
@@ -241,14 +242,19 @@ class Consumer:
 
                     if self._stopped:
                         break
+
         except pika.exceptions.ChannelClosed:
             pass
 
-        for worker in workers:
-            worker.stop()
+        finally:
+            for worker in workers:
+                worker.stop()
 
-        for worker in workers:
-            worker.join()
+            for worker in workers:
+                try:
+                    worker.join()
+                except RuntimeError:
+                    pass  # The thread failed to start.
 
         channel.cancel()
         self._purge()
