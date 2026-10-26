@@ -18,6 +18,9 @@ def test_parse_debtor_uri():
             'swpt:',
             'swpt:-1',
             'swpt:18446744073709551616',
+            'swpt:1\n',
+            'swpt:\u0661',
+            'swpt:\uff11',
     ]:
         with pytest.raises(ValueError):
             parse_debtor_uri(uri)
@@ -46,6 +49,8 @@ def test_parse_account_uri():
             f'swpt:1/!{A132}AA',
             f'swpt:1/!{A132}AAAA',
             f'swpt:1/!{A132}AAAAA',
+            'swpt:1/1\n',
+            'swpt:\u0661/1',
     ]:
         with pytest.raises(ValueError):
             parse_account_uri(uri)
@@ -72,6 +77,7 @@ def test_make_account_uri():
         (9223372036854775807, '%$@%Dfda-'),
         (-9223372036854775808, '!%$@%Dfda-'),
         (-1, '\n!\t?'),
+        (2, 'abc\n'),
     ]
 
     for t in correct:
