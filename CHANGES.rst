@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.12.2
+--------------
+
+- Do not accept SWPT URIs ending with a newline
+
+
 0.12.1
 --------------
 
