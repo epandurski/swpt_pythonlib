@@ -4,10 +4,14 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode
 from typing import Tuple
 from swpt_pythonlib.utils import u64_to_i64, i64_to_u64
 
-PREFIX = r"^swpt:(\d{1,20})"
-URLSAFE_B64 = re.compile(r"^[A-Za-z0-9_=-]*$")
-SWPT_DEBTOR_URI = re.compile(PREFIX + "$")
-SWPT_ACCOUNT_URI = re.compile(PREFIX + r"/(!?[A-Za-z0-9_=-]{1,136})$")
+# NOTE: We use "[0-9]" instead of "\d", because in Python regular
+# expressions "\d" matches any Unicode decimal digit (like "\u0661"),
+# and we use "\Z" instead of "$", because "$" also matches before a
+# trailing newline. Otherwise, non-canonical URIs would be accepted.
+PREFIX = r"^swpt:([0-9]{1,20})"
+URLSAFE_B64 = re.compile(r"^[A-Za-z0-9_=-]*\Z")
+SWPT_DEBTOR_URI = re.compile(PREFIX + r"\Z")
+SWPT_ACCOUNT_URI = re.compile(PREFIX + r"/(!?[A-Za-z0-9_=-]{1,136})\Z")
 
 
 def parse_debtor_uri(uri: str) -> int:
